@@ -14,8 +14,8 @@
 // #[cfg(not(target_feature = "atomics"))]
 // compile_error!("Did you forget to enable `atomics` and `bulk-memory` features as outlined in wasm-bindgen-rayon README?");
 
-
 use spmc::{channel, Receiver, Sender};
+use web_sys::Worker;
 
 /**
  * Copyright 2021 Google Inc. All Rights Reserved.
@@ -29,27 +29,63 @@ use spmc::{channel, Receiver, Sender};
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::Weak;
 use wasm_bindgen::prelude::*;
-
 
 #[cfg(feature = "no-bundler")]
 use js_sys::JsString;
 
+use crate::klog;
+use crate::spectrumapp::appstate::set_app_state;
+use crate::spectrumapp::appstate::AppState;
+
 static mut WASM_RAYON_STARTED: bool = false;
+static mut WASM_RAYON_POOL_BUILDER: Option<Arc<KRayonPoolBuilder>> = None;
+
+pub fn get_wasm_rayon_pool_builder() -> Option<Arc<KRayonPoolBuilder>> {
+    unsafe { WASM_RAYON_POOL_BUILDER.clone() }
+}
 
 pub fn wasm_rayon_started() -> bool {
     unsafe { WASM_RAYON_STARTED }
 }
 
-pub fn init_wasm_rayon() {
-    let wasm_rayon = Arc::new(Mutex::new(KRayonPoolBuilder::new(3)));
+
+
+pub fn init_wasm_rayon_legacy() {
+    let wasm_rayon = KRayonPoolBuilder::new(5);
     KRayonPoolBuilder::spawn(&wasm_rayon);
+
+    unsafe {
+        WASM_RAYON_POOL_BUILDER = Some(wasm_rayon.clone());
+    }
+    Box::leak(Box::new(wasm_rayon));
+}
+
+#[allow(unused)]
+pub fn simple_rayon_wasm_thread(tb: rayon::ThreadBuilder) {
+    tb.run();
+}
+#[allow(unused)]
+pub fn init_wasm_rayon_regular_spawn() {
+    klog!("init with simple_rayon_wasm_thread");
+    let _pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(8)
+        .spawn_handler(move |threadbr| {
+            std::thread::spawn(|| simple_rayon_wasm_thread(threadbr));
+            Ok(())
+        })
+        .build_global()
+        .unwrap();
+}
+
+pub fn init_wasm_rayon() {
+    init_wasm_rayon_legacy();
 
     // wasm_rayon.borrow_mut().build();
     // let timeout_fn = move || {
@@ -65,8 +101,6 @@ pub fn init_wasm_rayon() {
     //     )
     //     .unwrap();
     // callback.forget();
-
-    Box::leak(Box::new(wasm_rayon));
 }
 
 // Naming is a workaround for https://github.com/rustwasm/wasm-bindgen/issues/2429
@@ -75,9 +109,13 @@ pub fn init_wasm_rayon() {
 #[wasm_bindgen]
 #[doc(hidden)]
 pub struct KRayonPoolBuilder {
-    num_threads: usize,
-    alive_threads: Arc<AtomicUsize>,
-    sender: Sender<rayon::ThreadBuilder>,
+    me: Weak<KRayonPoolBuilder>,
+
+    pub num_threads: usize,
+    #[wasm_bindgen(skip)]
+    pub alive_threads: Arc<AtomicUsize>,
+
+    sender: Mutex<Sender<rayon::ThreadBuilder>>,
     receiver: Receiver<rayon::ThreadBuilder>,
 }
 
@@ -95,14 +133,17 @@ pub struct KRayonPoolBuilder {
 // }
 
 impl KRayonPoolBuilder {
-    pub fn new(num_threads: usize) -> Self {
+    pub fn new(num_threads: usize) -> Arc<Self> {
         let (sender, receiver) = channel();
-        Self {
+
+        let pb = Arc::new_cyclic(|me| Self {
+            me: me.clone(),
             num_threads,
             alive_threads: Arc::new(AtomicUsize::new(0)),
-            sender,
+            sender: Mutex::new(sender),
             receiver,
-        }
+        });
+        pb
     }
 
     pub fn num_threads(&self) -> usize {
@@ -113,9 +154,9 @@ impl KRayonPoolBuilder {
         self.receiver.clone()
     }
 
-    pub fn spawn(selfref: &Arc<Mutex<Self>>) {
-        use crate::klog;
-        let num_threads = selfref.lock().unwrap().num_threads;
+    pub fn spawn(&self) {
+        //let num_threads = selfref.lock().unwrap().num_threads;
+        let num_threads = self.num_threads;
         klog!("rayon spawning WorkerPool");
         let js_pool = super::pool::WorkerPool::new(num_threads + 1)
             .map_err(|err| {
@@ -136,27 +177,23 @@ impl KRayonPoolBuilder {
 
             {
                 let notified_threads = notified_threads.clone();
-                let selfclone: Arc<Mutex<Self>> = Arc::clone(selfref);
+                let selfclone: Arc<Self> = self.me.upgrade().unwrap();
                 //let js_workercc = js_workerc.clone();
-                let last_idle_workerc = last_idle_worker.clone();
+                let last_idle_worker = last_idle_worker.clone();
                 super::pool::exec_on_message(&js_workerc, move |_msg| {
                     klog!("onmessage on main thread rayon");
                     let notified = 1 + notified_threads.fetch_add(1, Ordering::SeqCst);
                     if notified as usize == num_threads {
                         klog!("achieved all {} workers!", num_threads);
-                        // .build() uses atomics so let's use workers again
-                        let selfclone2 = selfclone.clone();
-                        super::pool::execute_unpooled(&last_idle_workerc, move || {
-                            klog!("executing rayon::build on worker");
-                            selfclone2.lock().unwrap().build();
-                        })
-                        .unwrap();
+                        set_app_state(AppState::AwaitingLastWorker);
+                        let last_idle_worker = last_idle_worker.clone();
+                        selfclone.on_all_workers_started(last_idle_worker);
                     }
                 });
             }
             {
-                let receiver = selfref.lock().unwrap().receiver();
-                let alive_threads = selfref.lock().unwrap().alive_threads.clone();
+                let receiver = self.receiver();
+                let alive_threads = self.alive_threads.clone();
                 super::pool::execute_unpooled(&js_workerc, move || {
                     alive_threads.fetch_add(1, Ordering::SeqCst);
                     klog!("spawn_once execute_unpooled");
@@ -166,11 +203,21 @@ impl KRayonPoolBuilder {
             }
             Box::leak(Box::new(js_worker));
         }
+        set_app_state(AppState::AwaitingRayonThreads);
 
         Box::leak(Box::new(js_pool));
     }
-    pub fn build(&mut self) {
-        use crate::klog;
+
+    pub fn on_all_workers_started(&self, last_idle_worker: Worker) {
+        // .build() uses atomics so let's use workers again
+        let selfclone = self.me.upgrade().unwrap();
+        super::pool::execute_unpooled(&last_idle_worker, move || {
+            klog!("executing rayon::build on worker");
+            selfclone.build();
+        })
+        .unwrap();
+    }
+    pub fn build(&self) {
         let alive = self.alive_threads.load(Ordering::SeqCst);
         if alive != self.num_threads {
             klog!(
@@ -187,11 +234,11 @@ impl KRayonPoolBuilder {
             // but currently we can't due to a Chrome bug that will cause
             // the main thread to lock up before it even sends the message:
             // https://bugs.chromium.org/p/chromium/issues/detail?id=1075645
-            .spawn_handler(move |thread| {
+            .spawn_handler(move |threadbr| {
                 // Note: `send` will return an error if there are no receivers.
                 // We can use it because all the threads are spawned and ready to accept
                 // messages by the time we call `build()` to instantiate spawn handler.
-                self.sender.send(thread).unwrap();
+                self.sender.lock().unwrap().send(threadbr).unwrap();
                 Ok(())
             })
             .build_global()

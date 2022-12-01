@@ -1,9 +1,12 @@
+use super::appstate::get_app_state;
+use super::appstate::AppState;
 use super::myvertex::*;
 use super::sbswdft::ChannelSWDFT;
 use super::sbswdft::Collected;
 use super::sbswdft::SpectrumBins;
 use super::sbswdft::SpectrumBinsState;
 use super::sbswdft::WindowType;
+
 use super::FontRenderer;
 use super::GraphType;
 use std::cell::RefCell;
@@ -304,10 +307,6 @@ impl SpectrumUI {
             }
         }
     }
-
-
-
-
 
     fn toggle_divisions_hz(&mut self) {
         self.divisions_hz = !self.divisions_hz;
@@ -619,6 +618,63 @@ impl SpectrumUI {
 
         v
     }
+
+    fn render_gui_status(&self, _pc: &mut Vec<PosColVertex>, pct: &mut Vec<PosColTexVertex>) {
+        if self.divisions_hz {
+            let mut fr = FontRenderer::new(self.font_atlas.clone(), pct);
+            fr.ui_scale = self.gui_scale as f32;
+            let offset = 10.0;
+
+            let alive_threads;
+            let wanted_threads;
+
+            #[cfg(target_arch = "wasm32")]
+            {
+                use super::wasm_rayon::get_wasm_rayon_pool_builder;
+                let wasm_rayon = get_wasm_rayon_pool_builder();
+                if let Some(wasm_rayon) = wasm_rayon {
+                    alive_threads = wasm_rayon.alive_threads.load(Ordering::Relaxed);
+                    wanted_threads = wasm_rayon.num_threads;
+                }
+            }
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                alive_threads = 0;
+                wanted_threads = 0;
+            }
+
+            let mem = super::kwasm::get_wasm_mem_size() as f64 / (1024.0 * 1024.0);
+            let app_state = get_app_state();
+
+            let state_string;
+            let state_str = if app_state == AppState::Playing {
+                ""
+            } else {
+                state_string = format!("state: {:?}", app_state);
+                &state_string
+            };
+            fr.draw_string(
+                format!(
+                    "DFT Threads: {}/{}   mem: {:.2} MB   {}",
+                    alive_threads, wanted_threads, mem, state_str
+                )
+                .as_str(),
+                2.0,
+                2.0,
+                0xffaaffaa,
+                false,
+            );
+
+            fr.draw_string(
+                format!("[key: left/right/+/-/P/S]").as_str(),
+                2.0,
+                offset + 2.0,
+                0xffaaffaa,
+                false,
+            );
+        }
+    }
+
     fn render_gui_divisions_grid(
         &self,
         snapshot: &StateSnapshot,
@@ -630,14 +686,7 @@ impl SpectrumUI {
         if self.divisions_hz {
             let mut fr = FontRenderer::new(self.font_atlas.clone(), pct);
             fr.ui_scale = self.gui_scale as f32;
-
-            fr.draw_string(
-                format!("[key: left/right/+/-/P/S]").as_str(),
-                2.0,
-                2.0,
-                0xffaaffaa,
-                false,
-            );
+            let offset = 10.0;
             fr.draw_string(
                 format!(
                     "[up/down]        resolution: r = {:.2} wavelengths",
@@ -645,7 +694,7 @@ impl SpectrumUI {
                 )
                 .as_str(),
                 2.0,
-                12.0,
+                offset + 12.0,
                 0xffaaffaa,
                 false,
             );
@@ -657,7 +706,7 @@ impl SpectrumUI {
                 )
                 .as_str(),
                 2.0,
-                22.0,
+                offset + 22.0,
                 0xffaaffaa,
                 false,
             );
@@ -677,7 +726,7 @@ impl SpectrumUI {
                     )
                     .as_str(),
                     2.0,
-                    32.0,
+                    offset + 32.0,
                     0xffaaffaa,
                     false,
                 );
@@ -686,7 +735,7 @@ impl SpectrumUI {
                         format!(" [B/N] window subdivisions: {}", snapshot.window_kernel_len)
                             .as_str(),
                         2.0,
-                        42.0,
+                        offset + 42.0,
                         0xffaaffaa,
                         false,
                     );
@@ -699,7 +748,7 @@ impl SpectrumUI {
             fr.draw_string(
                 format!("[L]              log y scale: {}", self.logarithmic_scale,).as_str(),
                 2.0,
-                52.0,
+                offset + 52.0,
                 0xffaaffaa,
                 false,
             );
@@ -713,7 +762,7 @@ impl SpectrumUI {
                 )
                 .as_str(),
                 2.0,
-                62.0,
+                offset + 62.0,
                 0xffaaffaa,
                 false,
             );
@@ -721,18 +770,7 @@ impl SpectrumUI {
             fr.draw_string(
                 format!("gain: {:+.2} dB", 20.0 * gain.log10()).as_str(),
                 2.0,
-                82.0,
-                0xffaaffaa,
-                false,
-            );
-            fr.draw_string(
-                format!(
-                    "mem: {:.2} MB",
-                    super::kwasm::get_wasm_mem_size() as f64 / (1024.0 * 1024.0)
-                )
-                .as_str(),
-                2.0,
-                92.0,
+                offset + 82.0,
                 0xffaaffaa,
                 false,
             );
@@ -1143,6 +1181,7 @@ impl SpectrumUI {
         pc: &mut Vec<PosColVertex>,
         pct: &mut Vec<PosColTexVertex>,
     ) {
+        self.render_gui_status(pc, pct);
         if false {
             let display = &self.display_params;
             let posa = [0.0, 0.0];

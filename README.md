@@ -23,6 +23,7 @@ Todo
 - Organize code (less mutexes, separate crates)
 - remove `cargo make`
 - compute shaders instead of CPU DFT
+- remove statics with unsafe - use only `Arc`
 
 Running
 ----

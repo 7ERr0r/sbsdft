@@ -25,6 +25,7 @@ pub mod myvertex;
 pub mod sbswdft;
 pub mod spectrumui;
 pub mod texture;
+pub mod appstate;
 
 #[cfg(target_arch = "wasm32")]
 pub mod pool;
@@ -34,6 +35,8 @@ pub mod kwasm;
 pub mod tracingalloc;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm_rayon;
+
+pub mod appthread;
 
 // #[cfg(feature = "rawwebgl")]
 // pub mod rawwebgl;
@@ -51,9 +54,7 @@ use texture::KRect;
 use core::num::NonZeroU32;
 //use parking_lot::Mutex;
 use std::borrow::Cow;
-use std::cell::RefCell;
 
-use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::Weak;
 use wgpu::util::DeviceExt;
@@ -113,39 +114,6 @@ pub fn panicked() -> bool {
     unsafe { PANICKED }
 }
 
-pub trait PCMReceiver: Send + Sync {
-    fn num_channels(&self) -> usize;
-    fn on_receive(&self, samples: &[Vec<f32>]);
-}
-
-pub struct SlidingImplReceiver {
-    weak_sliding_channels: Vec<Weak<Mutex<SlidingImpl>>>,
-}
-impl SlidingImplReceiver {
-    pub fn new(channels: Vec<Weak<Mutex<SlidingImpl>>>) -> Self {
-        Self {
-            weak_sliding_channels: channels,
-        }
-    }
-}
-
-impl PCMReceiver for SlidingImplReceiver {
-    fn num_channels(&self) -> usize {
-        self.weak_sliding_channels.len()
-    }
-
-    fn on_receive(&self, channels_samples: &[Vec<f32>]) {
-        for (out_channel, samples) in self.weak_sliding_channels.iter().zip(channels_samples) {
-            out_channel.upgrade().map(|strong| {
-                match &mut *strong.lock().unwrap() {
-                    SlidingImpl::DFT(dft) => dft.on_input(&samples),
-                    //SlidingImpl::Correlator(corr) => corr.on_input(&buf),
-                    //_ => {}
-                };
-            });
-        }
-    }
-}
 
 #[allow(unused)]
 fn keycode2kikod(vkeycode: VirtualKeyCode) -> Kikod {
@@ -1497,6 +1465,9 @@ fn draw_chunked<'a>(
 
 use clap::Parser;
 
+use self::appthread::ProcessingApp;
+
+
 /// Simple program to greet a person
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -1507,6 +1478,7 @@ struct Args {
 }
 
 pub fn main() {
+
     klog!("spectrumapp::main");
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -1536,10 +1508,10 @@ struct SlidingRenderer {
     channels: Option<Vec<Weak<Mutex<SlidingImpl>>>>,
 
     #[cfg(not(target_arch = "wasm32"))]
-    audio_io_bridge: Option<Rc<RefCell<adevice_cpal::SlidingCpal>>>,
+    audio_io_bridge: Option<Arc<adevice_cpal::SlidingCpal>>,
 
     #[cfg(target_arch = "wasm32")]
-    audio_io_bridge: Option<Rc<RefCell<adevice_web::AdeviceWeb>>>,
+    audio_io_bridge: Option<Arc<adevice_web::AdeviceWeb>>,
 
     spectrum_ui: Option<SpectrumUI>,
 
@@ -1633,15 +1605,22 @@ impl SlidingRenderer {
     }
 
     fn init_audio(&mut self) {
+        
         #[cfg(target_arch = "wasm32")]
         if !wasm_rayon::wasm_rayon_started() {
             return;
         }
+
+  
         let channels = self.channels.as_ref().unwrap().clone();
+        let strong = channels.iter().map(|c| c.upgrade().unwrap()).collect();
+        let app = ProcessingApp::new(strong);
+
+
         #[cfg(not(target_arch = "wasm32"))]
         {
             self.audio_io_bridge = Some(adevice_cpal::SlidingCpal::new(
-                Box::new(SlidingImplReceiver::new(channels)),
+                Arc::new(app.new_sender()),
                 &self.params,
             ));
         }
@@ -1649,14 +1628,14 @@ impl SlidingRenderer {
         #[cfg(target_arch = "wasm32")]
         {
             self.audio_io_bridge = Some(adevice_web::AdeviceWeb::new(Box::new(
-                SlidingImplReceiver::new(channels),
+                app.new_sender()
             )));
         }
 
         #[cfg(not(target_arch = "wasm32"))]
         self.audio_io_bridge
             .as_mut()
-            .map(|v| v.borrow_mut().start());
+            .map(|v| v.start());
 
         #[cfg(target_arch = "wasm32")]
         self.audio_io_bridge

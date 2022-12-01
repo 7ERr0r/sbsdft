@@ -1,5 +1,7 @@
 #![cfg_attr(target_arch = "wasm32", feature(alloc_error_hook))]
 
+#[cfg(target_arch = "wasm32")]
+pub use wasm_bindgen_rayon::init_thread_pool;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -23,13 +25,13 @@ use wasm_bindgen::prelude::*;
 // static GLOBAL: KWasmTracingAllocator<std::alloc::System> =
 //     KWasmTracingAllocator(std::alloc::System);
 
-pub mod counteralloc;
+pub(crate) mod counteralloc;
 
 // #[global_allocator]
 // static GLOBAL: counteralloc::Counter = counteralloc::Counter;
 
 #[cfg(target_arch = "wasm32")]
-pub mod spectrumapp;
+pub(crate) mod spectrumapp;
 
 // #[cfg(target_arch = "wasm32")]
 // #[wasm_bindgen(start)]
@@ -44,7 +46,8 @@ pub fn main() {
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn start_dft(wasm_bindgen_path: &str) {
-    
+    use crate::spectrumapp::appstate::*;
+    set_app_state(AppState::Initializing);
 
     std::alloc::set_alloc_error_hook(|layout| {
         panic!("memory allocation of {} bytes failed", layout.size());
@@ -65,14 +68,21 @@ pub fn start_dft(wasm_bindgen_path: &str) {
         //klog!("rust panic: {}", info);
     }));
 
+    set_app_state(AppState::InitializingMem);
+
     use crate::spectrumapp::kwasm::prealloc_fast;
     let v = prealloc_fast(200 * 1024 * 1024);
     crate::spectrumapp::kwasm::debug_wasm_mem("start_dft");
-    use crate::spectrumapp::wasm_rayon::init_wasm_rayon;
+    
     unsafe {
         crate::spectrumapp::pool::set_wasm_bindgen_js_path(wasm_bindgen_path);
     }
+    set_app_state(AppState::InitRayon);
+    use crate::spectrumapp::wasm_rayon::init_wasm_rayon;
     init_wasm_rayon();
+
+    
+
     crate::spectrumapp::kwasm::debug_wasm_mem("init_wasm_rayon");
 
     drop(v);

@@ -1,4 +1,6 @@
-use super::PCMReceiver;
+use super::appthread::PCMSender;
+use super::appstate::set_app_state;
+use super::appstate::AppState;
 
 use crate::klog;
 use crossbeam_channel::Receiver;
@@ -40,19 +42,19 @@ pub fn global_audio_context() -> Result<AudioContext, JsValue> {
 
 pub struct AdeviceWeb {
     grapher: Weak<RefCell<AdeviceWeb>>,
-    channels: Option<Box<dyn PCMReceiver>>,
+    pcm_sender: Box<dyn PCMSender>,
     //pub r_channel: SlidingImpl,
     pub source: Option<AudioBufferSourceNode>,
     pub reference_audio_buffer: Option<AudioBuffer>,
     pub playing_ref: bool,
     pub rolling_gain: f64,
     pub current_power: f64,
-    tx: Option<Sender<Vec<f32>>>,
+    //tx: Option<Sender<Vec<f32>>>,
     //uint8buf: js_sys::Uint8Array,
 }
 
 impl AdeviceWeb {
-    pub fn new(channels: Box<dyn PCMReceiver>) -> Rc<RefCell<Self>> {
+    pub fn new(pcm_sender: Box<dyn PCMSender>) -> Rc<RefCell<Self>> {
         let rc = Rc::new_cyclic(|me| {
             RefCell::new(Self {
                 grapher: me.clone(),
@@ -61,8 +63,7 @@ impl AdeviceWeb {
                 playing_ref: false,
                 rolling_gain: 0.0001,
                 current_power: 1.0,
-                channels: Some(channels),
-                tx: None,
+                pcm_sender,
             })
         });
         rc
@@ -78,57 +79,23 @@ impl AdeviceWeb {
     pub fn start(&mut self) -> Result<(), JsValue> {
         self.start_capture()?;
 
-        use crossbeam_channel::bounded;
-        let (tx, rx) = bounded::<Vec<f32>>(1024);
-        let mut channels: Option<Box<dyn PCMReceiver>> = None;
-        let mut tx = Some(tx);
-        std::mem::swap(&mut channels, &mut self.channels);
-        std::mem::swap(&mut self.tx, &mut tx);
+        //use crossbeam_channel::bounded;
+        //let (tx, rx) = bounded::<Vec<f32>>(1024);
+        //let mut channels: Option<Box<dyn PCMReceiver>> = None;
+        //let mut tx = Some(tx);
+        //std::mem::swap(&mut channels, &mut self.sender);
+        //std::mem::swap(&mut self.tx, &mut tx);
 
-        super::kwasm::spawn_once(move || {
-            Self::receiver_task(rx, channels.unwrap());
-        });
+        // super::kwasm::spawn_once(move || {
+        //     Self::receiver_task(rx, channels.unwrap());
+        // });
 
         Ok(())
     }
-    pub fn receiver_task(rx: Receiver<Vec<f32>>, out_channels: Box<dyn PCMReceiver>) {
-        let mut bufs: Vec<Vec<f32>> = Vec::with_capacity(out_channels.num_channels() as usize);
-
-        for _i in 0..out_channels.num_channels() {
-            bufs.push(Vec::with_capacity(1024));
-        }
-        loop {
-            match rx.recv() {
-                Err(_) => break,
-                Ok(samples) => {
-                    Self::on_receive(&mut bufs, 2, &out_channels, &samples);
-                }
-            }
-        }
+    pub fn receiver_task(rx: Receiver<Vec<f32>>, out_channels: Box<dyn PCMSender>) {
+        
     }
-    pub fn on_receive(
-        bufs: &mut Vec<Vec<f32>>,
-        in_channels: usize,
-        out_channels: &Box<dyn PCMReceiver>,
-        samples: &[f32],
-    ) {
-        for c in 0..out_channels.num_channels() {
-            let mut buf = &mut bufs[c];
-            buf.resize(samples.len() / in_channels, 0.0);
-            let buf = &mut buf;
 
-            // 0 or 1 offset
-            let mut i = c;
-            let mut j = 0;
-            while i < samples.len() {
-                buf[j] = samples[i];
-                i += in_channels;
-                j += 1;
-            }
-        }
-
-        out_channels.on_receive(&bufs);
-    }
 
     fn start_capture(&mut self) -> Result<(), JsValue> {
         let window = web_sys::window().unwrap();
@@ -185,6 +152,9 @@ impl AdeviceWeb {
         *ff.borrow_mut() = Some(Closure::wrap(
             Box::new(success_cb) as Box<dyn FnMut(JsValue)>
         ));
+
+        set_app_state(AppState::WaitingForUserAudio);
+
         let _unused = success_promise.then(ff.borrow().as_ref().unwrap());
 
         Ok(())
@@ -276,6 +246,7 @@ impl AdeviceWeb {
     }
 
     pub fn on_media_stream_acquired(&mut self, maybe_stream: JsValue) -> Result<(), JsValue> {
+        set_app_state(AppState::MediaStreamTrack);
         //let media_stream: MediaStream = maybe_stream.dyn_into();
 
         //self.fetch_reference_signal();
@@ -297,6 +268,8 @@ impl AdeviceWeb {
         let weak = self.grapher.clone();
         let success_cb = move |_| {
             let media_streamc = media_stream.clone();
+            set_app_state(AppState::Playing);
+
             weak.upgrade().map(|strong| {
                 match strong
                     .borrow_mut()
@@ -421,7 +394,8 @@ impl AdeviceWeb {
         //     SlidingImpl::Correlator(corr) => corr.on_input(&buf),
         // };
 
-        self.tx.as_ref().map(|tx| tx.try_send(buf));
+        //self.tx.as_ref().map(|tx| tx.try_send(buf));
+        self.pcm_sender.send_pcm(1, buf);
 
         // let mut bufs = Vec::new();
         // bufs.push(buf);

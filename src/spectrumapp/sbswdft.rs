@@ -452,7 +452,7 @@ impl DftBin {
             partial_sums_pos: 0,
         }
     }
-    pub fn frequency(&self, sample_rate: f32) -> f32 {
+    fn frequency(&self, sample_rate: f32) -> f32 {
         // inverse phase_shift_per_sample_to_fixed_point(freq / sample_rate)
 
         fixed_point_to_phase_shift_per_sample(self.pulsation) * sample_rate
