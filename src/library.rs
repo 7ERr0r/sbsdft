@@ -1,5 +1,4 @@
-//#![feature(alloc_error_hook)]
-
+#![cfg_attr(target_arch = "wasm32", feature(alloc_error_hook))]
 
 // #[cfg(target_arch = "wasm32")]
 // use dlmalloc::GlobalDlmalloc;
