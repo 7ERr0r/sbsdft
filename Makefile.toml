@@ -59,13 +59,13 @@ args = ["--out-dir", "dist", "--web", "./target/wasm32-unknown-unknown/debug/dft
 
 [tasks.optwasm]
 description = "Optimize WASM with wasm-opt"
-command = "./bin/binaryen/wasm-opt"
-args = ["-O3", "dist/dft_bg.wasm", "-o", "dist/dft_bg.wasm"]
+command = "./bin/binaryen/bin/wasm-opt"
+args = ["-O3", "dist/dftvis_bg.wasm", "-o", "dist/dftvis_bg.wasm"]
 
 [tasks.optjs]
 description = "Optimize release JS with terser"
-command = "terser"
-args = ["-c", "-m", "-o", "dist/dft.js", "dist/dft.js"]
+command = "npx"
+args = ["terser", "-c", "-m", "-o", "dist/dftvis.js", "dist/dftvis.js"]
 
 [tasks.rb]
 description = "Combine the build and serve tasks"
@@ -76,7 +76,7 @@ dependencies = ["wasmreleasen", "rbindgen"]
 [tasks.rbo]
 description = "Combine the build and serve tasks"
 workspace = false
-dependencies = ["wasmreleasen", "rbindgen", "optwasm", "optjs"]
+dependencies = ["wasmreleasen", "rbindgen", "optjs", "optwasm"]
 
 [tasks.db]
 description = "Combine the build and serve tasks"
