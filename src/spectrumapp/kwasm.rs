@@ -8,6 +8,7 @@ pub fn fix_webgl_color(wgsl_shader: &str) -> String {
 
 #[cfg(target_arch = "wasm32")]
 pub fn fix_webgl_color(wgsl_shader: &str) -> String {
+    // TODO check if still necessary
     //let wgsl_shader = wgsl_shader.replace("// webglcolorfix", "color = color / 128.0;");
     //let wgsl_shader = wgsl_shader.replace("// webgltexfix", "color = color / 200.0;");
 
