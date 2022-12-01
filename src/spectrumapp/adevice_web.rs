@@ -339,6 +339,7 @@ impl AdeviceWeb {
         Ok(processor)
     }
 
+    #[allow(unused)]
     pub fn create_worklet_processor_node(
         &self,
         ctx: &AudioContext,

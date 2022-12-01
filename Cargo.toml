@@ -67,7 +67,7 @@ async-executor = "1.4.1"
 pollster = "0.2.5"
 console_error_panic_hook = "0.1.7"
 clap = { version = "4.0.19", features = ["derive"] }
-#wasm-bindgen-rayon = "1.0"
+
 
 [dependencies.wgpu]
 package = "wgpu"

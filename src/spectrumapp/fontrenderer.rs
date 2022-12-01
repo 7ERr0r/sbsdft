@@ -200,6 +200,7 @@ where
         font_renderer
     }
 
+    #[allow(unused)]
     pub fn reset(&mut self) {
         self.pos_x = 1.0;
         self.pos_y = 1.0;

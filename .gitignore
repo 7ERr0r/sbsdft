@@ -4,7 +4,7 @@ Cargo.lock
 bin/
 old/
 
-
+dist/snippets
 dist/dftvis.js
 *.wasm
 *.wasm.d.ts

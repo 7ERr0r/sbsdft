@@ -22,13 +22,8 @@ use std::sync::Mutex;
 use super::displayparams::DisplayParams;
 use super::fontrenderer::FontAtlas;
 
-use super::sbswdft::phase_shift_per_sample_to_fixed_point;
-
-use super::sbswdft::MeasureBin;
 use super::sbswdft::SlidingImpl;
 use super::sbswdft::SpectrumConfig;
-
-//use parking_lot::Mutex;
 
 use std::convert::TryFrom;
 use std::rc::Rc;
