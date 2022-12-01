@@ -1148,9 +1148,10 @@ impl ChannelSWDFT {
             freq_hz as f32,
             c.resolution_low_f_shelf_hz,
         );
-
+        // NC frequency delta
         let delta_freq = sample_rate / (window_size as f64);
 
+        // NC frequency bin contains 2 regular DFT bins
         let fa = freq_hz as f64 - delta_freq * 0.5;
         let fb = freq_hz as f64 + delta_freq * 0.5;
 
@@ -1545,6 +1546,7 @@ impl ChannelSWDFT {
 
                                 let a = a.rotate(phasea);
                                 let b = b.rotate(phaseb);
+                                // Just multiply NC components
                                 let mut magnitude = -(a.re * b.re + a.im * b.im);
                                 if magnitude < 0.0 {
                                     magnitude = 0.0;
@@ -1553,13 +1555,6 @@ impl ChannelSWDFT {
                                 magnitude *= s.meta.a_weight;
                                 magnitude /= s.bina.length as f64;
 
-                                // if octave.is_nan() {
-                                //     println!(
-                                //         "ocatave: {} is nan, at {} hz",
-                                //         octave,
-                                //         s.bina.frequency64(self.init_config.sample_rate as f64)
-                                //     );
-                                // }
                                 SSample {
                                     value: magnitude,
                                     color: s.meta.color.clone(),
