@@ -1,4 +1,3 @@
-#![feature(alloc_error_hook)]
 
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};

@@ -12,7 +12,6 @@ use std::sync::mpsc::Receiver;
 
 use super::PCMReceiver;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use parking_lot::Mutex;
 
 fn start_writer(
     tx: SyncSender<Vec<f32>>,
@@ -134,7 +133,7 @@ fn start_writer(
     Ok(stream)
 }
 
-fn write_input_data<T, G>(input: &[T], tx: SyncSender<Vec<f32>>, debug_getter: &mut G)
+fn write_input_data<T, G>(input: &[T], tx: SyncSender<Vec<f32>>, _debug_getter: &mut G)
 where
     T: cpal::Sample,
     G: FnMut() -> f32,

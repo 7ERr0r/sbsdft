@@ -35,7 +35,7 @@ pub struct SpectrumUI {
 
     display_params: DisplayParams,
     mouse_pos: cgmath::Vector2<f32>,
-    init_config: SpectrumConfig,
+    _init_config: SpectrumConfig,
     zoom_config: SpectrumConfig,
     zoom: f32,
     graph_type: GraphType,
@@ -73,7 +73,7 @@ impl SpectrumUI {
             gui_scale: 2,
             divisions_hz: true,
 
-            init_config: config.clone(),
+            _init_config: config.clone(),
             zoom_config: config,
             sliding_impls: celled,
             display_params: DisplayParams {
@@ -463,13 +463,13 @@ impl SpectrumUI {
         // let mut l_channel = self.sliding_impl.lock();
         // match &mut *l_channel {
         //     crate::sbswdft::SlidingImpl::DFT(dft) => {
-        let zoom_config = &mut self.zoom_config;
+        //let zoom_config = &mut self.zoom_config;
 
         //println!("frequency: {:.2} Hz", freq);
-        let freq = ChannelSWDFT::num_probe_x_to_freq(
-            zoom_config,
-            self.mouse_pos.x / self.display_params.dx as f32,
-        );
+        // let _freq = ChannelSWDFT::num_probe_x_to_freq(
+        //     zoom_config,
+        //     self.mouse_pos.x / self.display_params.dx as f32,
+        // );
         //drop(l_channel);
     }
 
@@ -563,10 +563,10 @@ impl SpectrumUI {
         let mut added = BTreeSet::new();
 
         fn can_add(
-            v: &mut Vec<(f32, f32, i8)>,
+            _v: &mut Vec<(f32, f32, i8)>,
             added: &mut BTreeSet<i32>,
             x_pos: f32,
-            f: f32,
+            _f: f32,
         ) -> bool {
             let xi = x_pos as i32;
             if xi >= -10000 && xi < 10000 {
@@ -620,7 +620,7 @@ impl SpectrumUI {
             f: f32,
             base10: f32,
         ) {
-            let mut can = true;
+            let can;
             // for ii in 1..=9 {
             //     let ff = f + ii as f32 * base10;
 
@@ -682,7 +682,7 @@ impl SpectrumUI {
     fn render_gui_divisions_grid(
         &self,
         snapshot: &StateSnapshot,
-        pc: &mut Vec<PosColVertex>,
+        _pc: &mut Vec<PosColVertex>,
         pct: &mut Vec<PosColTexVertex>,
         //dft: &mut ChannelSWDFT,
         gain: f64,
@@ -816,69 +816,6 @@ impl SpectrumUI {
         }
     }
 
-    fn render_hand_rotary_indicator(
-        &self,
-        pc: &mut Vec<PosColVertex>,
-        magnitude: f64,
-        angle: f64,
-        offset: cgmath::Vector2<f32>,
-    ) {
-        let color = 0xffffffff;
-
-        let pi = std::f64::consts::PI;
-        let angle = pi / 2.0 + angle;
-
-        let angle = cgmath::Rad(-angle as f32);
-
-        let hand_len = 3.0 * (magnitude as f32 - 70.0);
-        let width = 2.0;
-
-        let posa: cgmath::Vector2<f32> = cgmath::vec2(-width, hand_len * 1.0);
-        let posb: cgmath::Vector2<f32> = cgmath::vec2(-width, hand_len * 0.0);
-        let posc: cgmath::Vector2<f32> = cgmath::vec2(width, hand_len * 0.0);
-        let posd: cgmath::Vector2<f32> = cgmath::vec2(width, hand_len * 1.0);
-
-        let rot = cgmath::Matrix2::from_angle(angle);
-
-        let reimsize = 200.0;
-        let reimthich = 1.0;
-        let gray = 0x33333333;
-        {
-            let posa = offset + cgmath::vec2(-reimsize, -reimthich);
-            let posb = offset + cgmath::vec2(reimsize, -reimthich);
-            let posc = offset + cgmath::vec2(reimsize, reimthich);
-            let posd = offset + cgmath::vec2(-reimsize, reimthich);
-
-            Self::push_rect(pc, &[posa, posb, posc, posd], gray);
-        }
-        {
-            let posa = offset + cgmath::vec2(-reimthich, -reimsize);
-            let posb = offset + cgmath::vec2(reimthich, -reimsize);
-            let posc = offset + cgmath::vec2(reimthich, reimsize);
-            let posd = offset + cgmath::vec2(-reimthich, reimsize);
-
-            Self::push_rect(pc, &[posa, posb, posc, posd], gray);
-        }
-
-        {
-            let posa = offset + (rot * posa);
-            let posb = offset + (rot * posb);
-            let posc = offset + (rot * posc);
-            let posd = offset + (rot * posd);
-
-            Self::push_rect(pc, &[posa, posb, posc, posd], color);
-        }
-    }
-
-    fn push_rect(pc: &mut Vec<PosColVertex>, pos: &[cgmath::Vector2<f32>; 4], color: u32) {
-        let posa = [pos[0].x, pos[0].y];
-        let posb = [pos[1].x, pos[1].y];
-        let posc = [pos[2].x, pos[2].y];
-        let posd = [pos[3].x, pos[3].y];
-
-        Self::push_rect_abcd(pc, posa, posb, posc, posd, color);
-    }
-
     fn push_rect_abcd(
         pc: &mut Vec<PosColVertex>,
         posa: [f32; 2],
@@ -935,212 +872,9 @@ impl SpectrumUI {
         [posb, posa]
     }
 
-    fn push_rect_abcd_old(
-        pc: &mut Vec<PosColVertex>,
-        posa: [f32; 2],
-        posb: [f32; 2],
-        posc: [f32; 2],
-        posd: [f32; 2],
-        color: u32,
-    ) {
-        // pc.push(PosColVertex {
-        //     pos: posa,
-        //     color: color,
-        // });
-        // pc.push(PosColVertex {
-        //     pos: posb,
-        //     color: color,
-        // });
-        // pc.push(PosColVertex {
-        //     pos: posc,
-        //     color: color,
-        // });
-        // pc.push(PosColVertex {
-        //     pos: posd,
-        //     color: color,
-        // });
-
-        // pc.push(PosColVertex {
-        //     pos: posa,
-        //     color: color,
-        // });
-        // pc.push(PosColVertex {
-        //     pos: posb,
-        //     color: color,
-        // });
-        // pc.push(PosColVertex {
-        //     pos: posd,
-        //     color: color,
-        // });
-        // pc.push(PosColVertex {
-        //     pos: posd,
-        //     color: color,
-        // });
-        // pc.push(PosColVertex {
-        //     pos: posb,
-        //     color: color,
-        // });
-        // pc.push(PosColVertex {
-        //     pos: posc,
-        //     color: color,
-        // });
-    }
-
-    fn angle_deg_distance(a: f64, b: f64) -> f64 {
-        let diff = (b - a + 180.0) % 360.0 - 180.0;
-        if diff < -180.0 {
-            diff + 360.0
-        } else {
-            diff
-        }
-    }
-    fn angle_rad_distance(a: f64, b: f64) -> f64 {
-        let pi = std::f64::consts::PI;
-        let diff = (b - a + pi) % (2.0 * pi) - pi;
-        if diff < -pi {
-            diff + 2.0 * pi
-        } else {
-            diff
-        }
-    }
-
-    fn render_measurement(
-        &self,
-        pc: &mut Vec<PosColVertex>,
-        pct: &mut Vec<PosColTexVertex>,
-        dft: &mut ChannelSWDFT,
-    ) {
-        let measure_bin = dft.measure_bins.get_mut(0);
-        match measure_bin {
-            None => {}
-            Some(bin) => {
-                let mut fr = FontRenderer::new(self.font_atlas.clone(), pct);
-                fr.ui_scale = self.gui_scale as f32;
-
-                let f = bin.bin.frequency(self.zoom_config.sample_rate as f32);
-                fr.draw_string(
-                    format!("f: {:.6} Hz", f).as_str(),
-                    self.display_params.gui_dx as f32 / 2.0,
-                    20.0,
-                    0xffaaffaa,
-                    false,
-                );
-
-                let window_len = bin.bin.length as f32 / self.zoom_config.sample_rate as f32;
-
-                let text = format!("window: {}", DisplayMsSecond(window_len));
-                fr.draw_string(
-                    text.as_str(),
-                    self.display_params.gui_dx as f32 / 2.0,
-                    30.0,
-                    0xffaaffaa,
-                    false,
-                );
-
-                let sum = bin.bin.sum_ranged_all();
-                let re = sum.re as f64 / (bin.bin.lengthf);
-                let im = sum.im as f64 / (bin.bin.lengthf);
-
-                let magnitude = (re * re + im * im).sqrt();
-                let angle = im.atan2(re);
-
-                let change = Self::angle_rad_distance(bin.last_phase, angle);
-                if bin.first_measurement {
-                    bin.first_measurement = false;
-                } else {
-                    if change < 3.14 / 4.0 {
-                        bin.cumulative_phase_change += change;
-                    }
-                }
-
-                let textx = self.display_params.gui_dx as f32 * (2.0 / 3.0);
-
-                fr.draw_string(
-                    &format!(
-                        "phase: {:+010.5} deg",
-                        180.0 * (angle / std::f64::consts::PI)
-                    )
-                    .as_str(),
-                    textx,
-                    40.0,
-                    0xffaaffaa,
-                    false,
-                );
-                fr.draw_string(
-                    &format!("amplitude: {:+07.2} dB", 20.0 * magnitude.log10()).as_str(),
-                    textx,
-                    50.0,
-                    0xffaaffaa,
-                    false,
-                );
-
-                fr.draw_string(
-                    &format!("Measure for 340 m/s").as_str(),
-                    textx,
-                    70.0,
-                    0xffaaffaa,
-                    false,
-                );
-
-                let measured_wavelengths =
-                    bin.cumulative_phase_change / (2.0 * std::f64::consts::PI);
-                let wavelength = (340.0 / f) as f64;
-                let measured_distance = measured_wavelengths * wavelength;
-
-                fr.draw_string(
-                    &format!("{:+07.3} m", measured_distance).as_str(),
-                    textx,
-                    80.0,
-                    0xffaaffaa,
-                    false,
-                );
-
-                self.render_hand_rotary_indicator(
-                    pc,
-                    20.0 * magnitude.log10(),
-                    angle,
-                    cgmath::vec2(
-                        self.display_params.dx as f32 / 2.0,
-                        self.display_params.dy as f32 / 2.0,
-                    ),
-                );
-
-                fr.draw_string(
-                    "Re",
-                    self.display_params.gui_dx as f32 / 2.0 + 100.0 + 2.0,
-                    self.display_params.gui_dy as f32 / 2.0 - 5.0,
-                    0xff999999,
-                    false,
-                );
-
-                fr.draw_string(
-                    "Im",
-                    self.display_params.gui_dx as f32 / 2.0 - 2.0,
-                    self.display_params.gui_dy as f32 / 2.0 - 100.0 - 10.0,
-                    0xff999999,
-                    false,
-                );
-
-                let tau = std::f64::consts::TAU;
-                let decoded = (2.0 + 4.0 * angle / tau).floor();
-                let decoded = (decoded as i32 + 2) % 4;
-
-                fr.draw_string(
-                    &format!("Decoded QPSK: {:02b}", decoded).as_str(),
-                    self.display_params.gui_dx as f32 / 2.0 + 40.0,
-                    self.display_params.gui_dy as f32 / 2.0 - 50.0,
-                    0xff999999,
-                    false,
-                );
-
-                bin.last_phase = angle;
-            }
-        }
-    }
-
     fn render_tooltip(
         &self,
-        pc: &mut Vec<PosColVertex>,
+        _pc: &mut Vec<PosColVertex>,
         pct: &mut Vec<PosColTexVertex>,
         dft: Option<&ChannelSWDFT>,
     ) {
@@ -1573,7 +1307,7 @@ impl SpectrumUI {
             let mut lastalpha = 0;
             let mut currentalpha;
             let mut currentalphap = 0;
-            let mut debuga = 0;
+            //let _debuga = 0;
 
             //let collected: Vec<Arc<Mutex<Collected>>> =
             //    dft.collected_spectrums.iter().map(|c| c.clone()).collect();
@@ -1589,7 +1323,7 @@ impl SpectrumUI {
 
                 let alpha = currentalpha - lastalpha;
 
-                let mut opt_spectrum = collected.get_mut(collected_index);
+                let opt_spectrum = collected.get_mut(collected_index);
                 match opt_spectrum {
                     None => break,
                     Some(mut spectrum) => {

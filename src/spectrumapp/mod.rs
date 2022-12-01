@@ -140,7 +140,7 @@ impl PCMReceiver for SlidingImplReceiver {
                 match &mut *strong.lock().unwrap() {
                     SlidingImpl::DFT(dft) => dft.on_input(&samples),
                     //SlidingImpl::Correlator(corr) => corr.on_input(&buf),
-                    _ => {}
+                    //_ => {}
                 };
             });
         }
@@ -552,7 +552,7 @@ fn create_lines_render_pipeline(
 fn create_ui_render_pipeline(
     device: &wgpu::Device,
     sconfig: &wgpu::SurfaceConfiguration,
-    adapter: &wgpu::Adapter,
+    _adapter: &wgpu::Adapter,
 ) -> (wgpu::RenderPipeline, wgpu::BindGroupLayout) {
     println!("create_ui_render_pipeline");
     // let vs_module = device.create_shader_module(&wgpu::include_spirv!("shaders/ui.vert.spv"));
