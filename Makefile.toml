@@ -1,0 +1,91 @@
+
+[config]
+skip_core_tasks = true
+
+
+
+[tasks.release]
+description = "Build release"
+env = { RUSTFLAGS = "" }
+command = "cargo"
+args = ["build", "--target", "x86_64-pc-windows-msvc", "--release"]
+
+
+[tasks.releasel]
+description = "Build release"
+env = { RUSTFLAGS = "" }
+command = "cargo"
+args = ["build", "--target", "x86_64-unknown-linux-gnu", "--release"]
+
+
+[tasks.wasmrelease]
+description = "Build release"
+env = { RUSTFLAGS = "--cfg=web_sys_unstable_apis" }
+command = "cargo"
+args = ["build", "--no-default-features", "--target", "wasm32-unknown-unknown", "--release"]
+
+
+[tasks.wasmreleasen]
+description = "Build --release nightly with bulk/shared memory"
+env = { RUSTFLAGS = "--cfg=web_sys_unstable_apis -C target-feature=+atomics,+bulk-memory,+mutable-globals -Clink-args=--max-memory=4294967296" }
+command = "cargo"
+args = ["build", "--no-default-features", "--target", "wasm32-unknown-unknown", "-Z", "build-std=std,panic_abort", "--release"]
+
+
+[tasks.wasmdebugn]
+description = "Build --debug nightly with bulk/shared memory"
+env = { RUSTFLAGS = "--cfg=web_sys_unstable_apis -C target-feature=+atomics,+bulk-memory,+mutable-globals" }
+command = "cargo"
+args = ["build", "--no-default-features", "--target", "wasm32-unknown-unknown", "-Z", "build-std=std,panic_abort"]
+
+
+
+
+[tasks.rbindgen]
+description = "Generate release wrapper"
+command = "wasm-bindgen"
+args = ["--out-dir", "dist", "--web", "./target/wasm32-unknown-unknown/release/dft.wasm"]
+
+[tasks.dbindgen]
+description = "Generate release wrapper"
+command = "wasm-bindgen"
+args = ["--out-dir", "dist", "--web", "./target/wasm32-unknown-unknown/debug/dft.wasm"]
+
+# [tasks.rpack]
+# description = "pack wasm release"
+# command = "wasm-pack"
+# args = ["build", "--target", "web", "--", "-Z", "build-std=panic_abort,std"]
+
+
+[tasks.optwasm]
+description = "Optimize WASM with wasm-opt"
+command = "./bin/binaryen/wasm-opt"
+args = ["-O3", "dist/dft_bg.wasm", "-o", "dist/dft_bg.wasm"]
+
+[tasks.optjs]
+description = "Optimize release JS with terser"
+command = "terser"
+args = ["-c", "-m", "-o", "dist/dft.js", "dist/dft.js"]
+
+[tasks.rb]
+description = "Combine the build and serve tasks"
+workspace = false
+#dependencies = ["wasmreleasen", "rbindgen", "optwasm", "optjs"]
+dependencies = ["wasmreleasen", "rbindgen"]
+
+[tasks.rbo]
+description = "Combine the build and serve tasks"
+workspace = false
+dependencies = ["wasmreleasen", "rbindgen", "optwasm", "optjs"]
+
+[tasks.db]
+description = "Combine the build and serve tasks"
+workspace = false
+#dependencies = ["wasmdebugn", "dbindgen", "optwasm", "optjs"]
+dependencies = ["wasmdebugn", "dbindgen"]
+
+
+# [tasks.rp]
+# description = "Combine the build and serve tasks"
+# workspace = false
+# dependencies = ["wasmreleasen", "rpack"]

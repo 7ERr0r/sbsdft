@@ -1,0 +1,17 @@
+target
+node_modules
+Cargo.lock
+bin/
+old/
+*.wasm
+*.wasm.d.ts
+*.d.ts
+*.exe
+spectrum.m
+stereo_mix.bat
+miks_stereo.bat
+dist/dft.js
+trace/
+miks_stereo.bat
+stereo_mix.bat
+package-lock.json

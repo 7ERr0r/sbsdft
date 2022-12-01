@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8" />
+  <title>DFT</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+</head>
+<style>
+  html {
+    background: black;
+  }
+
+  body {
+    background: black;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+</style>
+
+<body>
+  <!--<script src="alloc_hooks.js?2"></script>-->
+  <script type="module">
+    const origin = location.origin;
+    const pathname = location.pathname;
+    const anticache = "?t=" + Math.floor(Date.now());
+    let modpath = origin + pathname + "dft.js" + anticache;
+    //import { default as init, start_dft } from modpath;
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+    function sleepAnimationFrame() {
+      return new Promise(resolve => requestAnimationFrame(resolve));
+    }
+    (async () => {
+      const wasmbinds = await import(modpath);
+      await wasmbinds.default(new URL('dft_bg.wasm' + anticache, import.meta.url));
+      // workers must load the SAME cached file
+      // so the threads will start faster
+      wasmbinds.start_dft(modpath);
+      // must spin event loop to start workers
+      await sleepAnimationFrame();
+      await sleepAnimationFrame();
+      wasmbinds.start_spectrumapp();
+    })()
+
+  </script>
+</body>
+
+</html>
