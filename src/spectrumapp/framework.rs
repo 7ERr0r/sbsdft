@@ -5,6 +5,7 @@ use winit::dpi::PhysicalSize;
 use winit::dpi::Size;
 
 
+use winit::event_loop::EventLoopBuilder;
 use winit::{
     event::{self, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
@@ -268,7 +269,7 @@ async fn setup<P, E: Example<P>>(title: &str) -> Setup {
         env_logger::init();
     };
 
-    let event_loop: EventLoop<MyEvent> = EventLoop::with_user_event();
+    let event_loop: EventLoop<MyEvent> = EventLoopBuilder::<MyEvent>::with_user_event().build();
     let mut builder = winit::window::WindowBuilder::new();
     builder = builder.with_title(title);
     #[cfg(windows_OFF)] // TODO

@@ -4,7 +4,7 @@
 
 [package]
 name = "dftvis"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["error"]
 edition = "2021"
 resolver = "2"

@@ -54,21 +54,19 @@ pub struct AdeviceWeb {
 
 impl AdeviceWeb {
     pub fn new(channels: Box<dyn PCMReceiver>) -> Rc<RefCell<Self>> {
-        // SAFETY: ? initialized below
-        let rc = Rc::new(RefCell::new(MaybeUninit::uninit()));
-
-        *rc.borrow_mut() = MaybeUninit::new(Self {
-            grapher: unsafe { mem::transmute(Rc::downgrade(&rc)) },
-            reference_audio_buffer: None,
-            source: None,
-            playing_ref: false,
-            rolling_gain: 0.0001,
-            current_power: 1.0,
-            channels: Some(channels),
-            tx: None,
+        let rc = Rc::new_cyclic(|me| {
+            RefCell::new(Self {
+                grapher: me.clone(),
+                reference_audio_buffer: None,
+                source: None,
+                playing_ref: false,
+                rolling_gain: 0.0001,
+                current_power: 1.0,
+                channels: Some(channels),
+                tx: None,
+            })
         });
-
-        unsafe { mem::transmute(rc) }
+        rc
     }
 
     // pub fn move_probes(&mut self, left: bool) {
