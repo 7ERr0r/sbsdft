@@ -18,14 +18,6 @@ self.addEventListener('message', event => {
             firstMsg = false;
 
             (async () => {
-                // let xd = await import("https://kloxki.com/dist_wgpu/alloc_hooks.js?3");
-                // for (var prop in xd) {
-                //     if (Object.prototype.hasOwnProperty.call(obj, prop)) {
-                //         self[prop] = xd[prop];
-                //     }
-                // }
-
-
                 let wasmbindmod = await wasmbindmodpromise;
 
                 console.log("onmessage_a", wasmbindmod);

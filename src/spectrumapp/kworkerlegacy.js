@@ -1,4 +1,5 @@
 importScripts("HEREwbgpath");
+
 // let modpath = "HEREwbgpath";
 // import { default as init, child_entry_point } from modpath;
 console.log("kworker.js importScripts...");
