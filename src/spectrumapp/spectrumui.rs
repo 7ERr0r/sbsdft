@@ -305,69 +305,9 @@ impl SpectrumUI {
         }
     }
 
-    pub fn measurement_auto_adjust(&mut self) {
-        for sliding_cell in &self.sliding_impls {
-            let sliding_main = sliding_cell.borrow();
-            let mut channel = sliding_main.sliding_rc.lock().unwrap();
-            match &mut *channel {
-                SlidingImpl::DFT(dft) => {
-                    let measure_bin = dft.measure_bins.get_mut(0);
-                    match measure_bin {
-                        None => {}
-                        Some(bin) => {
-                            bin.auto_adjust(&self.zoom_config);
-                        }
-                    }
-                }
-            }
-        }
-    }
 
-    pub fn dump_matrix(&mut self) {
-        let res = self.write_matrix_file();
 
-        println!("write_matrix_file: {:?}", res);
-    }
 
-    fn write_matrix_file(&mut self) -> std::io::Result<()> {
-        let sample_rate = self.zoom_config.sample_rate as f32;
-
-        let mut lengths = Vec::new();
-        let mut frequencies = Vec::new();
-        let mut phases = Vec::new();
-        let mut values = Vec::new();
-
-        {
-            let sliding_impl = &self.sliding_impls[0];
-            let sliding_impl = sliding_impl.borrow();
-            let mut l_channel = sliding_impl.sliding_rc.lock().unwrap();
-            match &mut *l_channel {
-                SlidingImpl::DFT(dft) => match &dft.spectrum_bins {
-                    SpectrumBins::DFT(dft_bins) => {
-                        for bin in dft_bins.iter() {
-                            lengths.push(bin.bin.lengthf);
-                            frequencies.push(bin.bin.frequency(sample_rate));
-                            phases.push(bin.bin.current_phase);
-                            values.push(bin.bin.sum_ranged_all());
-                        }
-                    }
-                    SpectrumBins::NC(_) => {}
-                },
-            }
-        }
-
-        {
-            use std::fs::File;
-            use std::io::prelude::*;
-
-            let mut file = File::create("spectrum.m")?;
-            write!(&mut file, "lengths = {:?};\n", lengths)?;
-            write!(&mut file, "frequencies = {:?};\n", frequencies)?;
-            write!(&mut file, "phases = {:?};\n", phases)?;
-            write!(&mut file, "values = {:?};\n", values)?;
-        }
-        Ok(())
-    }
 
     fn toggle_divisions_hz(&mut self) {
         self.divisions_hz = !self.divisions_hz;

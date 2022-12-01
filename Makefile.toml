@@ -44,12 +44,12 @@ args = ["build", "--no-default-features", "--target", "wasm32-unknown-unknown", 
 [tasks.rbindgen]
 description = "Generate release wrapper"
 command = "wasm-bindgen"
-args = ["--out-dir", "dist", "--web", "./target/wasm32-unknown-unknown/release/dft.wasm"]
+args = ["--out-dir", "dist", "--web", "./target/wasm32-unknown-unknown/release/dftvis.wasm"]
 
 [tasks.dbindgen]
 description = "Generate release wrapper"
 command = "wasm-bindgen"
-args = ["--out-dir", "dist", "--web", "./target/wasm32-unknown-unknown/debug/dft.wasm"]
+args = ["--out-dir", "dist", "--web", "./target/wasm32-unknown-unknown/debug/dftvis.wasm"]
 
 # [tasks.rpack]
 # description = "pack wasm release"

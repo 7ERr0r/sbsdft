@@ -36,3 +36,10 @@ Name
 ---
 Repo name is bad. Wanted to name it chromatone (similar to colorchord), but it's already taken: https://github.com/chromatone
 
+
+
+Wasm compilation
+---
+`cargo install cargo-make`
+`cargo install wasm-bindgen-cli`
+`cargo make rbo`

@@ -1196,24 +1196,13 @@ impl framework::Example<MyParams> for Example {
                                     .as_mut()
                                     .map(|v| v.toggle_logarithmic());
                             }
-                            VirtualKeyCode::A => {
-                                self.sliding_renderer
-                                    .spectrum_ui
-                                    .as_mut()
-                                    .map(|v| v.measurement_auto_adjust());
-                            }
                             VirtualKeyCode::R => {
                                 self.sliding_renderer
                                     .spectrum_ui
                                     .as_mut()
                                     .map(|v| v.measurement_reset());
                             }
-                            VirtualKeyCode::D => {
-                                self.sliding_renderer
-                                    .spectrum_ui
-                                    .as_mut()
-                                    .map(|v| v.dump_matrix());
-                            }
+
                             VirtualKeyCode::S => {
                                 self.sliding_renderer
                                     .spectrum_ui
