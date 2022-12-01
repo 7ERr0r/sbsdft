@@ -15,9 +15,7 @@ Windows: `cargo make release`
 
 Linux: `cargo make releasel`
 
-Shader compilation
----
-`make`
+
 
 
 Todo
@@ -48,3 +46,11 @@ Wasm compilation
 - `cargo install wasm-bindgen-cli`
 - `npm install terser`
 - `cargo make rbo`
+
+
+
+Shader compilation
+---
+
+Unnecessary, because of new .wgsl
+`make`
