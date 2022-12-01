@@ -390,6 +390,7 @@ async fn setup<P, E: Example<P>>(title: &str) -> Setup {
 
 #[cfg(target_arch = "wasm32")]
 fn my_resize_handler(window: &winit::window::Window, event_loop: &EventLoop<MyEvent>) {
+    use winit::event_loop::EventLoopProxy;
     let proxy: EventLoopProxy<MyEvent> = event_loop.create_proxy();
     let resize_getter = move || -> (i64, i64) {
         let domwin = web_sys::window().unwrap();

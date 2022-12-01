@@ -30,7 +30,6 @@ debug = true
 opt-level = 3
 
 
-
 [dependencies]
 wee_alloc = "0.4.5"
 bytes = "1.1.0"
@@ -61,14 +60,13 @@ bytemuck = { version = "1.9.1", features = ["derive"] }
 rand = "0.8.5"
 log = "0.4.17"
 env_logger = "0.10"
-#winit = { version = "0.27", features = [] }
+winit = { version = "0.27", features = [] }
 num = "0.4.0"
 num_enum = "0.5.7"
 async-executor = "1.4.1"
 pollster = "0.2.5"
 console_error_panic_hook = "0.1.7"
 clap = { version = "4.0.19", features = ["derive"] }
-
 
 
 [dependencies.wgpu]
@@ -83,7 +81,6 @@ features = ["webgl"]
 #pprof = "*"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-winit = { version = "0.27", features = [] }
 cpal = "0.14"
 
 
@@ -105,7 +102,6 @@ wasm-bindgen-futures = "0.4.30"
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies.subscriber]
 package = "wgpu-subscriber"
 version = "0.1.0"
-
 
 
 [features]
@@ -145,8 +141,6 @@ git = "https://github.com/gfx-rs/wgpu"
 rev = "e5ddb94be0221b0f53a8f43adfb15458daebfd7c"
 
 
-
-
 [target.'cfg(target_arch="wasm32")'.dependencies]
 wee_alloc = "0.4.5"
 wasm-bindgen-rayon = "1.0.3"
@@ -158,6 +152,9 @@ wasm-bindgen = "0.2.80"
 web-sys = { version = "0.3.60", features = [
     "MediaStreamTrack",
     "AudioProcessingEvent",
+    "AudioBuffer",
+    "AudioBufferSourceNode",
+    "AudioContext",
     "MediaStream",
     "MediaDevices",
     "MediaStreamAudioSourceNode",

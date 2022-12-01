@@ -805,6 +805,7 @@ impl Example {
 }
 #[derive(Clone)]
 pub struct MyParams {
+    #[cfg(not(target_arch = "wasm32"))]
     audio_device: Option<String>,
 }
 
@@ -1518,11 +1519,14 @@ struct Args {
 
 pub fn main() {
     klog!("spectrumapp::main");
+
+    #[cfg(not(target_arch = "wasm32"))]
     let args = Args::parse();
 
     //let guard = pprof::ProfilerGuard::new(100).unwrap();
 
     let params = MyParams {
+        #[cfg(not(target_arch = "wasm32"))]
         audio_device: args.input_audio_device,
     };
     framework::run::<MyParams, Example>("sbsdft", params);
@@ -1550,6 +1554,7 @@ struct SlidingRenderer {
 
     spectrum_ui: Option<SpectrumUI>,
 
+    #[allow(unused)]
     params: MyParams,
 }
 

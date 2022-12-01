@@ -65,7 +65,6 @@ pub fn get_wasm_mem_size() -> i64 {
 
 #[cfg(target_arch = "wasm32")]
 pub fn debug_wasm_mem(name: &str) {
-    use crate::klog;
     klog!(
         "{}, mem: {:.2} MB",
         name,

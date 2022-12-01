@@ -14,9 +14,9 @@
 // #[cfg(not(target_feature = "atomics"))]
 // compile_error!("Did you forget to enable `atomics` and `bulk-memory` features as outlined in wasm-bindgen-rayon README?");
 
-use js_sys::Promise;
+
 use spmc::{channel, Receiver, Sender};
-use std::cell::RefCell;
+
 /**
  * Copyright 2021 Google Inc. All Rights Reserved.
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,14 +29,14 @@ use std::cell::RefCell;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::rc::Rc;
+
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::sync::Mutex;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsValue;
+
 
 #[cfg(feature = "no-bundler")]
 use js_sys::JsString;
@@ -137,7 +137,7 @@ impl KRayonPoolBuilder {
             {
                 let notified_threads = notified_threads.clone();
                 let selfclone: Arc<Mutex<Self>> = Arc::clone(selfref);
-                let js_workercc = js_workerc.clone();
+                //let js_workercc = js_workerc.clone();
                 let last_idle_workerc = last_idle_worker.clone();
                 super::pool::exec_on_message(&js_workerc, move |_msg| {
                     klog!("onmessage on main thread rayon");

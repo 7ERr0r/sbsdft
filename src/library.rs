@@ -1,5 +1,9 @@
 #![cfg_attr(target_arch = "wasm32", feature(alloc_error_hook))]
 
+
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
+
 // #[cfg(target_arch = "wasm32")]
 // use dlmalloc::GlobalDlmalloc;
 
@@ -40,7 +44,7 @@ pub fn main() {
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn start_dft(wasm_bindgen_path: &str) {
-    use wasm_bindgen::prelude::*;
+    
 
     std::alloc::set_alloc_error_hook(|layout| {
         panic!("memory allocation of {} bytes failed", layout.size());

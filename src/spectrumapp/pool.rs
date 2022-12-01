@@ -87,7 +87,7 @@ pub fn spawn_worker() -> Result<Worker, JsValue> {
     if firefox {
         worker_content = include_str!("kworkerlegacy.js").replace("HEREwbgpath", wrapper_url);
     } else {
-        write!(
+        let _ = write!(
             worker_content,
             "const wbgpath = '{}';\n{}",
             wrapper_url,

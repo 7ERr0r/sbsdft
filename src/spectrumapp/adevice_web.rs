@@ -17,7 +17,6 @@ use web_sys::AudioProcessingEvent;
 use web_sys::MediaStream;
 
 use std::cell::RefCell;
-use std::mem::{self, MaybeUninit};
 use std::rc::Rc;
 use std::rc::Weak;
 
@@ -354,7 +353,7 @@ impl AdeviceWeb {
         let mut options = WorkletOptions::new();
 
         options.credentials(web_sys::RequestCredentials::SameOrigin);
-        let module = worklet.add_module_with_options("processor.js", &options)?;
+        let _module_promise = worklet.add_module_with_options("processor.js", &options)?;
 
         Ok(processor)
     }
