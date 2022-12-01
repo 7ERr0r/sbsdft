@@ -2005,7 +2005,7 @@ impl ChannelSWDFT {
         // let mut pindex = 0;
         // let mut current = peaks.get(pindex);
         // let mut next = peaks.get(pindex + 1);
-        let range = 64;
+        let range = 20;
         let half_range = range / 2;
         let len = spectrum.len();
         // (0..len).into_iter().map(|i|{

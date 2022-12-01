@@ -66,11 +66,13 @@ pub struct ProcessingApp {
     pub sliding_channels: Vec<Arc<Mutex<SlidingImpl>>>,
     bufs: Mutex<Vec<Vec<f32>>>,
     pub main_tx: Sender<AppMsg>,
+    pub main_priority_tx: Sender<AppMsg>,
 }
 
 impl ProcessingApp {
     pub fn new(sliding_channels: Vec<Arc<Mutex<SlidingImpl>>>) -> Arc<Self> {
         let (tx, rx) = bounded(1024);
+        let (priority_tx, priority_rx) = bounded(1024);
 
         let channels = sliding_channels.len();
         let mut bufs: Vec<Vec<f32>> = Vec::with_capacity(channels);
@@ -84,11 +86,12 @@ impl ProcessingApp {
             sliding_channels: sliding_channels,
             bufs: Mutex::new(bufs),
             main_tx: tx,
+            main_priority_tx: priority_tx,
         });
 
         let appp = app.clone();
         super::kwasm::spawn_once("processingApp.main_thread", move || {
-            appp.main_thread(rx);
+            appp.main_thread(priority_rx, rx);
         });
 
         app
@@ -98,21 +101,25 @@ impl ProcessingApp {
         SlidingAppSender::new(self.main_tx.clone(), self.sliding_channels.len())
     }
 
-    pub fn main_thread(&self, rx: Receiver<AppMsg>) {
+    pub fn main_thread(&self, priority_rx: Receiver<AppMsg>, rx: Receiver<AppMsg>) {
         loop {
-            if !self.main_loop(&rx) {
+            if !self.main_loop(&priority_rx, &rx) {
                 break;
             }
         }
     }
 
-    pub fn main_loop(&self, rx: &Receiver<AppMsg>) -> bool {
-        match rx.recv() {
-            Err(_) => return false,
-            Ok(AppMsg::RunFunc(appfn)) => {
+    pub fn main_loop(&self, priority_rx: &Receiver<AppMsg>, rx: &Receiver<AppMsg>) -> bool {
+        let mut msg = priority_rx.try_recv().ok();
+        if msg.is_none() {
+            msg = rx.recv().ok();
+        }
+        match msg {
+            None => return false,
+            Some(AppMsg::RunFunc(appfn)) => {
                 appfn(self);
             }
-            Ok(AppMsg::PcmAudio(ch_num, samples)) => {
+            Some(AppMsg::PcmAudio(ch_num, samples)) => {
                 let mut bufs = self.bufs.lock().unwrap();
                 let in_channels = if ch_num < 0 {
                     self.sliding_channels.len()

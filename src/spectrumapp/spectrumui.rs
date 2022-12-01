@@ -135,7 +135,7 @@ impl SpectrumUI {
 
     pub fn run_main(&self, f: Box<AppFunc>) {
         if let Some(app) = &self.app {
-            let _ = app.main_tx.try_send(AppMsg::RunFunc(f));
+            let _ = app.main_priority_tx.try_send(AppMsg::RunFunc(f));
         }
     }
 
