@@ -8,6 +8,7 @@ pub enum AppState {
     AwaitingLastWorker,
     WaitingForUserAudio,
     MediaStreamTrack,
+    GetUserMediaFailed,
     Playing,
 }
 

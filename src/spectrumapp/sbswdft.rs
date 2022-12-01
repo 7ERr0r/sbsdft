@@ -2,6 +2,7 @@ extern crate lazy_static;
 
 use crate::spectrumapp::spectrumui::StateSnapshot;
 
+use super::spectrumui::RendererMsg;
 use super::PosColVertex;
 use lazy_static::lazy_static;
 use std::sync::mpsc::Receiver;
@@ -199,7 +200,7 @@ pub fn hz2color_rgb(freq_hz: f32) -> (f32, f32, f32) {
     key = 440.0; // regular
                  //key = 280.0; // lumi video keyboard
                  //key = 275.0; // color chord default
-    //reverse = -1.0;
+                 //reverse = -1.0;
 
     // mapping to yellow (2^(1/12))
     let key = key; // * 1.12246204830;
@@ -971,8 +972,8 @@ pub struct ChannelSWDFT {
     pub samples_to_collect_remaining: usize,
 
     //pub collected_spectrums: VecDeque<Arc<Mutex<Collected>>>,
-    pub collected_spectrums_sender: Arc<Mutex<Sender<Collected>>>,
-    pub collected_spectrums_receiver: Arc<Mutex<Option<Receiver<Collected>>>>,
+    pub collected_spectrums_sender: Arc<Mutex<Sender<RendererMsg>>>,
+    pub collected_spectrums_receiver: Arc<Mutex<Option<Receiver<RendererMsg>>>>,
 
     pub collector: Collector,
     pub collected_counter: usize,
@@ -1161,10 +1162,15 @@ impl ChannelSWDFT {
         bin.binb.reinit_exact(fb, pb, window_size, false);
     }
 
-    pub fn reinit_my_spectrum(&mut self, config: &SpectrumConfig) {
-        self.config = config.clone();
+    pub fn reinit_my_spectrum(&mut self) {
+        //self.config = config.clone();
 
-        Self::reinit_spectrum(&mut self.spectrum_bins, config);
+        Self::reinit_spectrum(&mut self.spectrum_bins, &self.config);
+        let _res = self
+            .collected_spectrums_sender
+            .lock()
+            .unwrap()
+            .send(RendererMsg::ConfigUpdate(self.config.clone()));
     }
 
     pub fn reinit_spectrum(spectrum_bins: &mut SpectrumBins, config: &SpectrumConfig) {
@@ -1234,7 +1240,7 @@ impl ChannelSWDFT {
             collector: ChannelSWDFT::init_collector(6, WindowType::BlackmanNutall),
             collected_counter: 0,
             paused: false,
-            should_colorize: false,
+            should_colorize: true,
         };
         s.set_collect_frequency(60 * 10);
         //s.reinit_my_spectrum(&config);
@@ -1357,6 +1363,12 @@ impl ChannelSWDFT {
             c.min_f = min_f;
             c.max_f = max_f;
         }
+
+        let _res = self
+            .collected_spectrums_sender
+            .lock()
+            .unwrap()
+            .send(RendererMsg::ConfigUpdate(self.config.clone()));
     }
 
     pub fn blackman_nutall(x: f64) -> f64 {
@@ -2298,7 +2310,7 @@ impl ChannelSWDFT {
                         .collected_spectrums_sender
                         .lock()
                         .unwrap()
-                        .send(spectrum);
+                        .send(RendererMsg::NewSpectrum(spectrum));
                     self.collected_counter += 1;
                     // if self.collected_spectrums.len() > 200 {
                     //     self.collected_spectrums.pop_back();

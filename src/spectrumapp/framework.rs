@@ -4,7 +4,6 @@ use std::time::{Duration, Instant};
 use winit::dpi::PhysicalSize;
 use winit::dpi::Size;
 
-
 use winit::event_loop::EventLoopBuilder;
 use winit::{
     event::{self, WindowEvent},
@@ -89,7 +88,6 @@ struct Setup {
     device: wgpu::Device,
     queue: wgpu::Queue,
 }
-
 
 #[cfg(target_arch = "wasm32")]
 /// Parse the query string as returned by `web_sys::window()?.location().search()?` and get a
@@ -435,7 +433,6 @@ fn start<P, E: Example<P>>(
         }
     });
 }
-
 
 #[cfg(not(target_arch = "wasm32"))]
 pub struct Spawner<'a> {

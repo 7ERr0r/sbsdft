@@ -11,11 +11,7 @@ pub trait PCMSender: Send + Sync {
     fn send_pcm(&self, channel: i32, samples: Vec<f32>);
 }
 
-pub enum AppMsg {
-    RunFunc,
-    /// num_channels
-    PcmAudio(i32, Vec<f32>),
-}
+
 
 #[derive(Clone)]
 pub struct SlidingAppSender {
@@ -38,9 +34,10 @@ impl PCMSender for SlidingAppSender {
     }
 
     fn send_pcm(&self, num_channels: i32, samples: Vec<f32>) {
-        let _ = self.main_tx.try_send(AppMsg::PcmAudio(num_channels, samples));
+        let _ = self
+            .main_tx
+            .try_send(AppMsg::PcmAudio(num_channels, samples));
     }
-
 
     // fn on_receive(&self, channels_samples: &[Vec<f32>]) {
     //     // for (out_channel, samples) in self.weak_sliding_channels.iter().zip(channels_samples) {
@@ -55,12 +52,20 @@ impl PCMSender for SlidingAppSender {
     // }
 }
 
+pub type AppFunc = dyn FnOnce(&ProcessingApp) + Send;
+
+pub enum AppMsg {
+    RunFunc(Box<AppFunc>),
+    /// num_channels
+    PcmAudio(i32, Vec<f32>),
+}
+
 pub struct ProcessingApp {
     #[allow(unused)]
     me: Weak<Self>,
-    sliding_channels: Vec<Arc<Mutex<SlidingImpl>>>,
+    pub sliding_channels: Vec<Arc<Mutex<SlidingImpl>>>,
     bufs: Mutex<Vec<Vec<f32>>>,
-    main_tx: Sender<AppMsg>,
+    pub main_tx: Sender<AppMsg>,
 }
 
 impl ProcessingApp {
@@ -82,7 +87,7 @@ impl ProcessingApp {
         });
 
         let appp = app.clone();
-        super::kwasm::spawn_once(move || {
+        super::kwasm::spawn_once("processingApp.main_thread", move || {
             appp.main_thread(rx);
         });
 
@@ -104,12 +109,14 @@ impl ProcessingApp {
     pub fn main_loop(&self, rx: &Receiver<AppMsg>) -> bool {
         match rx.recv() {
             Err(_) => return false,
-            Ok(AppMsg::RunFunc) => {}
+            Ok(AppMsg::RunFunc(appfn)) => {
+                appfn(self);
+            }
             Ok(AppMsg::PcmAudio(ch_num, samples)) => {
                 let mut bufs = self.bufs.lock().unwrap();
                 let in_channels = if ch_num < 0 {
                     self.sliding_channels.len()
-                }else{
+                } else {
                     ch_num as usize
                 };
                 self.on_receive(&mut bufs, in_channels, &samples);

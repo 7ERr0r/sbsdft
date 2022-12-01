@@ -16,7 +16,7 @@ pub fn fix_webgl_color(wgsl_shader: &str) -> String {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn spawn_once<F, T>(f: F) -> ()
+pub fn spawn_once<F, T>(tname: &'static str, f: F) -> ()
 where
     F: FnOnce() -> T,
     F: Send + 'static,
@@ -26,7 +26,7 @@ where
 }
 
 #[cfg(target_arch = "wasm32")]
-pub fn spawn_once<F, T>(f: F) -> ()
+pub fn spawn_once<F, T>(tname: &'static str, f: F) -> ()
 where
     F: FnOnce() -> T,
     F: Send + 'static,
@@ -37,8 +37,8 @@ where
 
     let js_workerc = js_worker.clone();
     klog!("spawn_once...");
-    super::pool::execute_unpooled(&js_workerc, || {
-        klog!("spawn_once execute_unpooled adevice_web");
+    super::pool::execute_unpooled(&js_workerc, move || {
+        klog!("spawn_once execute_unpooled {}", tname);
         f();
     })
     .unwrap();

@@ -1,15 +1,13 @@
-use super::appthread::PCMSender;
 use super::appstate::set_app_state;
 use super::appstate::AppState;
+use super::appthread::PCMSender;
 
 use crate::klog;
-use crossbeam_channel::Receiver;
-use crossbeam_channel::Sender;
+
 use web_sys::MediaStreamTrack;
 use web_sys::ScriptProcessorNode;
 use web_sys::WorkletOptions;
 
-use js_sys::Promise;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::AudioBuffer;
@@ -20,7 +18,8 @@ use web_sys::MediaStream;
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::rc::Weak;
+use std::sync::Arc;
+use std::sync::Weak;
 
 thread_local! {
     pub static AUDIO_CONTEXT: RefCell<Option<AudioContext>> = RefCell::new(None);
@@ -41,7 +40,7 @@ pub fn global_audio_context() -> Result<AudioContext, JsValue> {
 }
 
 pub struct AdeviceWeb {
-    grapher: Weak<RefCell<AdeviceWeb>>,
+    me: Weak<AdeviceWeb>,
     pcm_sender: Box<dyn PCMSender>,
     //pub r_channel: SlidingImpl,
     pub source: Option<AudioBufferSourceNode>,
@@ -54,19 +53,17 @@ pub struct AdeviceWeb {
 }
 
 impl AdeviceWeb {
-    pub fn new(pcm_sender: Box<dyn PCMSender>) -> Rc<RefCell<Self>> {
-        let rc = Rc::new_cyclic(|me| {
-            RefCell::new(Self {
-                grapher: me.clone(),
-                reference_audio_buffer: None,
-                source: None,
-                playing_ref: false,
-                rolling_gain: 0.0001,
-                current_power: 1.0,
-                pcm_sender,
-            })
+    pub fn new(pcm_sender: Box<dyn PCMSender>) -> Arc<Self> {
+        let adevice = Arc::new_cyclic(|me| Self {
+            me: me.clone(),
+            reference_audio_buffer: None,
+            source: None,
+            playing_ref: false,
+            rolling_gain: 0.0001,
+            current_power: 1.0,
+            pcm_sender,
         });
-        rc
+        adevice
     }
 
     // pub fn move_probes(&mut self, left: bool) {
@@ -76,7 +73,7 @@ impl AdeviceWeb {
     //     };
     // }
 
-    pub fn start(&mut self) -> Result<(), JsValue> {
+    pub fn start(&self) -> Result<(), JsValue> {
         self.start_capture()?;
 
         //use crossbeam_channel::bounded;
@@ -92,12 +89,8 @@ impl AdeviceWeb {
 
         Ok(())
     }
-    pub fn receiver_task(rx: Receiver<Vec<f32>>, out_channels: Box<dyn PCMSender>) {
-        
-    }
 
-
-    fn start_capture(&mut self) -> Result<(), JsValue> {
+    fn start_capture(&self) -> Result<(), JsValue> {
         let window = web_sys::window().unwrap();
 
         let nav = window.navigator();
@@ -133,29 +126,48 @@ impl AdeviceWeb {
 
         let success_promise = devices.get_user_media_with_constraints(&constraints)?;
 
-        let f = Rc::new(RefCell::new(None));
-        let ff = f.clone();
+        // let f = Rc::new(RefCell::new(None));
+        // let ff = f.clone();
 
-        let weak = self.grapher.clone();
-        let success_cb = move |maybe_stream: JsValue| {
-            weak.upgrade().map(|strong| {
-                match strong.borrow_mut().on_media_stream_acquired(maybe_stream) {
-                    Ok(x) => x,
-                    Err(err) => {
-                        klog!("stream in callback is not a MediaStream: {:?}", err);
-                    }
-                };
-            });
-            drop(f.borrow().as_ref().unwrap());
-        };
+        let weak = self.me.clone();
+        // let success_cb = move |maybe_stream: JsValue| {
+        //     drop(f.borrow().as_ref().unwrap());
+        // };
 
-        *ff.borrow_mut() = Some(Closure::wrap(
-            Box::new(success_cb) as Box<dyn FnMut(JsValue)>
-        ));
+        // *ff.borrow_mut() = Some(Closure::wrap(
+        //     Box::new(success_cb) as Box<dyn FnMut(JsValue)>
+        // ));
 
         set_app_state(AppState::WaitingForUserAudio);
 
-        let _unused = success_promise.then(ff.borrow().as_ref().unwrap());
+        let _unused = success_promise
+            .then(
+                Self::oneshot_callback(move |maybe_stream| {
+                    if let Some(strong) = weak.upgrade() {
+                        match strong.on_media_stream_acquired(maybe_stream) {
+                            Ok(x) => x,
+                            Err(err) => {
+                                klog!("stream in callback is not a MediaStream: {:?}", err);
+                            }
+                        }
+                    }
+                    Ok(())
+                })
+                .borrow()
+                .as_ref()
+                .unwrap(),
+            )
+            .catch(
+                Self::oneshot_callback(move |err| {
+                    klog!("start_capture error: {:?}", err);
+                    set_app_state(AppState::GetUserMediaFailed);
+
+                    Ok(())
+                })
+                .borrow()
+                .as_ref()
+                .unwrap(),
+            );
 
         Ok(())
     }
@@ -220,32 +232,32 @@ impl AdeviceWeb {
     //     Ok(wasm_bindgen::JsValue::null())
     // }
 
-    pub fn decode_audio_data(
-        audio_file: &[u8],
-        mut success: Box<dyn FnMut(web_sys::AudioBuffer)>,
-    ) -> Result<Promise, JsValue> {
-        let ctx = global_audio_context()?;
+    // pub fn decode_audio_data(
+    //     audio_file: &[u8],
+    //     mut success: Box<dyn FnMut(web_sys::AudioBuffer)>,
+    // ) -> Result<Promise, JsValue> {
+    //     let ctx = global_audio_context()?;
 
-        let cb_ondecode_success = move |maybe_audiobuffer: JsValue| -> Result<(), JsValue> {
-            let audiobuffer: web_sys::AudioBuffer = maybe_audiobuffer.dyn_into()?;
-            success(audiobuffer);
-            Ok(())
-        };
-        let cb = Closure::wrap(
-            Box::new(cb_ondecode_success) as Box<dyn FnMut(JsValue) -> Result<(), JsValue>>
-        );
-        let content_js_array =
-            js_sys::Uint8Array::new(unsafe { &js_sys::Uint8Array::view(audio_file) });
+    //     let cb_ondecode_success = move |maybe_audiobuffer: JsValue| -> Result<(), JsValue> {
+    //         let audiobuffer: web_sys::AudioBuffer = maybe_audiobuffer.dyn_into()?;
+    //         success(audiobuffer);
+    //         Ok(())
+    //     };
+    //     let cb = Closure::wrap(
+    //         Box::new(cb_ondecode_success) as Box<dyn FnMut(JsValue) -> Result<(), JsValue>>
+    //     );
+    //     let content_js_array =
+    //         js_sys::Uint8Array::new(unsafe { &js_sys::Uint8Array::view(audio_file) });
 
-        let promise = ctx.decode_audio_data_with_success_callback(
-            &content_js_array.buffer(),
-            cb.as_ref().unchecked_ref(),
-        )?;
-        cb.forget();
-        Ok(promise)
-    }
+    //     let promise = ctx.decode_audio_data_with_success_callback(
+    //         &content_js_array.buffer(),
+    //         cb.as_ref().unchecked_ref(),
+    //     )?;
+    //     cb.forget();
+    //     Ok(promise)
+    // }
 
-    pub fn on_media_stream_acquired(&mut self, maybe_stream: JsValue) -> Result<(), JsValue> {
+    pub fn on_media_stream_acquired(&self, maybe_stream: JsValue) -> Result<(), JsValue> {
         set_app_state(AppState::MediaStreamTrack);
         //let media_stream: MediaStream = maybe_stream.dyn_into();
 
@@ -262,49 +274,60 @@ impl AdeviceWeb {
 
         let promise = media_stream_track.apply_constraints_with_constraints(&c)?;
 
-        let f = Rc::new(RefCell::new(None));
-        let ff = f.clone();
+        let weak = self.me.clone();
 
-        let weak = self.grapher.clone();
-        let success_cb = move |_| {
-            let media_streamc = media_stream.clone();
-            set_app_state(AppState::Playing);
+        let _unused = promise
+            .then(
+                Self::oneshot_callback(move |_| {
+                    let media_streamc = media_stream.clone();
+                    set_app_state(AppState::Playing);
 
-            weak.upgrade().map(|strong| {
-                match strong
-                    .borrow_mut()
-                    .on_media_stream_acquired_prepared(media_streamc)
-                {
-                    Ok(x) => x,
-                    Err(err) => {
-                        klog!("on_media_stream_acquired_prepared: {:?}", err);
+                    if let Some(strong) = weak.upgrade() {
+                        match strong.on_media_stream_acquired_prepared(media_streamc) {
+                            Ok(x) => x,
+                            Err(err) => {
+                                klog!("on_media_stream_acquired_prepared: {:?}", err);
+                            }
+                        }
                     }
-                };
-            });
-            drop(f.borrow().as_ref().unwrap());
-        };
+                    Ok(())
+                })
+                .borrow()
+                .as_ref()
+                .unwrap(),
+            )
+            .catch(
+                Self::oneshot_callback(move |err| {
+                    klog!("on_media_stream_acquired error: {:?}", err);
+                    Ok(())
+                })
+                .borrow()
+                .as_ref()
+                .unwrap(),
+            );
 
-        *ff.borrow_mut() = Some(Closure::wrap(
-            Box::new(success_cb) as Box<dyn FnMut(JsValue)>
-        ));
-        let _unused = promise.then(ff.borrow().as_ref().unwrap());
         Ok(())
     }
 
-    pub fn oneshot_callback<F: 'static>(mut callback: F)
+    #[allow(unused)]
+    pub fn oneshot_callback<F: 'static>(
+        mut callback: F,
+    ) -> Rc<RefCell<Option<Closure<dyn FnMut(JsValue)>>>>
     where
-        F: FnMut(JsValue),
+        F: FnMut(JsValue) -> Result<(), JsValue>,
     {
         let rc = Rc::new(RefCell::new(None));
         let rcc = rc.clone();
 
         let cb_wrapper = move |value: JsValue| {
             callback(value);
+            // free memory
             *rcc.borrow_mut() = None;
         };
         *rc.borrow_mut() = Some(Closure::wrap(
             Box::new(cb_wrapper) as Box<dyn FnMut(JsValue)>
         ));
+        rc
     }
 
     pub fn create_legacy_processor_node(
@@ -332,7 +355,7 @@ impl AdeviceWeb {
     }
 
     pub fn on_media_stream_acquired_prepared(
-        &mut self,
+        &self,
         media_stream: MediaStream,
     ) -> Result<(), JsValue> {
         let ctx = global_audio_context()?;
@@ -351,13 +374,13 @@ impl AdeviceWeb {
             uint8buf: js_sys::Uint8Array::new_with_length(1024),
         };
         */
-        let weak = self.grapher.clone();
+        let weak = self.me.clone();
         let cb_onaudioprocess = move |maybe_processingevent: JsValue| -> Result<(), JsValue> {
             weak.upgrade().map_or(Ok(()), |strong| {
                 if crate::spectrumapp::panicked() {
                     return Ok(());
                 }
-                strong.borrow_mut().onaudioprocess(maybe_processingevent)
+                strong.onaudioprocess(maybe_processingevent)
             })
         };
 
@@ -371,7 +394,7 @@ impl AdeviceWeb {
         Ok(())
     }
 
-    pub fn onaudioprocess(&mut self, maybe_processingevent: JsValue) -> Result<(), JsValue> {
+    pub fn onaudioprocess(&self, maybe_processingevent: JsValue) -> Result<(), JsValue> {
         let processingevent: AudioProcessingEvent = maybe_processingevent.dyn_into()?;
 
         let in_buf = processingevent.input_buffer()?;

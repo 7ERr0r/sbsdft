@@ -73,15 +73,13 @@ pub fn start_dft(wasm_bindgen_path: &str) {
     use crate::spectrumapp::kwasm::prealloc_fast;
     let v = prealloc_fast(200 * 1024 * 1024);
     crate::spectrumapp::kwasm::debug_wasm_mem("start_dft");
-    
+
     unsafe {
         crate::spectrumapp::pool::set_wasm_bindgen_js_path(wasm_bindgen_path);
     }
     set_app_state(AppState::InitRayon);
     use crate::spectrumapp::wasm_rayon::init_wasm_rayon;
     init_wasm_rayon();
-
-    
 
     crate::spectrumapp::kwasm::debug_wasm_mem("init_wasm_rayon");
 

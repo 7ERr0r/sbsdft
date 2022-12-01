@@ -55,8 +55,6 @@ pub fn wasm_rayon_started() -> bool {
     unsafe { WASM_RAYON_STARTED }
 }
 
-
-
 pub fn init_wasm_rayon_legacy() {
     let wasm_rayon = KRayonPoolBuilder::new(5);
     KRayonPoolBuilder::spawn(&wasm_rayon);

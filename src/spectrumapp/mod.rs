@@ -10,7 +10,7 @@ pub mod adevice_cpal;
 #[cfg(target_arch = "wasm32")]
 pub mod adevice_web;
 
-use crate::spectrumapp::spectrumui::SlidingMainThread;
+use crate::spectrumapp::spectrumui::SlidingChannel;
 use kikod::Kikod;
 use std::collections::VecDeque;
 use std::sync::Mutex;
@@ -18,6 +18,7 @@ use winit::event::VirtualKeyCode;
 
 use spectrumui::SpectrumUI;
 
+pub mod appstate;
 pub mod displayparams;
 pub mod fontrenderer;
 pub mod kikod;
@@ -25,7 +26,6 @@ pub mod myvertex;
 pub mod sbswdft;
 pub mod spectrumui;
 pub mod texture;
-pub mod appstate;
 
 #[cfg(target_arch = "wasm32")]
 pub mod pool;
@@ -113,7 +113,6 @@ pub static mut PANICKED: bool = false;
 pub fn panicked() -> bool {
     unsafe { PANICKED }
 }
-
 
 #[allow(unused)]
 fn keycode2kikod(vkeycode: VirtualKeyCode) -> Kikod {
@@ -793,7 +792,6 @@ fn create_indices() -> Vec<u16> {
     index_data
 }
 
-
 // fn nonempty_vertex_buffer(
 //     drop_defer: &RefCell<Option<wgpu::Buffer>>,
 //     device: &wgpu::Device,
@@ -840,8 +838,6 @@ impl framework::Example<MyParams> for Example {
 
         // buffer for simulation parameters uniform
         crate::spectrumapp::kwasm::debug_wasm_mem("Example init");
-
-
 
         crate::spectrumapp::kwasm::debug_wasm_mem("generate_matrix");
         let mx_total = Self::generate_matrix(sconfig.width as f32, sconfig.height as f32);
@@ -1108,7 +1104,6 @@ impl framework::Example<MyParams> for Example {
             winit::event::WindowEvent::Focused(true) => {}
             winit::event::WindowEvent::CloseRequested => {}
             winit::event::WindowEvent::KeyboardInput { input, .. } => {
-
                 if input.state == winit::event::ElementState::Pressed {
                     match input.virtual_keycode {
                         Some(key) => match key {
@@ -1164,12 +1159,12 @@ impl framework::Example<MyParams> for Example {
                                     .as_mut()
                                     .map(|v| v.toggle_logarithmic());
                             }
-                            VirtualKeyCode::R => {
-                                self.sliding_renderer
-                                    .spectrum_ui
-                                    .as_mut()
-                                    .map(|v| v.measurement_reset());
-                            }
+                            // VirtualKeyCode::R => {
+                            //     self.sliding_renderer
+                            //         .spectrum_ui
+                            //         .as_mut()
+                            //         .map(|v| v.measurement_reset());
+                            //}
 
                             VirtualKeyCode::S => {
                                 self.sliding_renderer
@@ -1223,18 +1218,18 @@ impl framework::Example<MyParams> for Example {
                                     .map(|v| v.change_collect_freq(true));
                             }
 
-                            VirtualKeyCode::Period => {
-                                self.sliding_renderer
-                                    .spectrum_ui
-                                    .as_mut()
-                                    .map(|v| v.measurement_change_freq(false));
-                            }
-                            VirtualKeyCode::Comma => {
-                                self.sliding_renderer
-                                    .spectrum_ui
-                                    .as_mut()
-                                    .map(|v| v.measurement_change_freq(true));
-                            }
+                            // VirtualKeyCode::Period => {
+                            //     self.sliding_renderer
+                            //         .spectrum_ui
+                            //         .as_mut()
+                            //         .map(|v| v.measurement_change_freq(false));
+                            // }
+                            // VirtualKeyCode::Comma => {
+                            //     self.sliding_renderer
+                            //         .spectrum_ui
+                            //         .as_mut()
+                            //         .map(|v| v.measurement_change_freq(true));
+                            //}
                             _ => {}
                         },
                         None => {}
@@ -1467,7 +1462,6 @@ use clap::Parser;
 
 use self::appthread::ProcessingApp;
 
-
 /// Simple program to greet a person
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -1478,7 +1472,6 @@ struct Args {
 }
 
 pub fn main() {
-
     klog!("spectrumapp::main");
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -1565,7 +1558,7 @@ impl SlidingRenderer {
             let sliding_impl = SlidingImpl::DFT(swdft);
             let impl_rc = Arc::new(Mutex::new(sliding_impl));
 
-            let impl_main_thread = SlidingMainThread {
+            let impl_main_thread = SlidingChannel {
                 sliding_rc: impl_rc,
                 spectrum_receiver: receiver.unwrap(),
                 last_rolling_gain: 1.0,
@@ -1605,17 +1598,17 @@ impl SlidingRenderer {
     }
 
     fn init_audio(&mut self) {
-        
         #[cfg(target_arch = "wasm32")]
         if !wasm_rayon::wasm_rayon_started() {
             return;
         }
 
-  
         let channels = self.channels.as_ref().unwrap().clone();
         let strong = channels.iter().map(|c| c.upgrade().unwrap()).collect();
         let app = ProcessingApp::new(strong);
 
+        let appc = app.clone();
+        self.spectrum_ui.as_mut().map(|ui| ui.app = Some(appc));
 
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -1627,20 +1620,14 @@ impl SlidingRenderer {
 
         #[cfg(target_arch = "wasm32")]
         {
-            self.audio_io_bridge = Some(adevice_web::AdeviceWeb::new(Box::new(
-                app.new_sender()
-            )));
+            self.audio_io_bridge = Some(adevice_web::AdeviceWeb::new(Box::new(app.new_sender())));
         }
 
         #[cfg(not(target_arch = "wasm32"))]
-        self.audio_io_bridge
-            .as_mut()
-            .map(|v| v.start());
+        self.audio_io_bridge.as_mut().map(|v| v.start());
 
         #[cfg(target_arch = "wasm32")]
-        self.audio_io_bridge
-            .as_mut()
-            .map(|v| v.borrow_mut().start().unwrap());
+        self.audio_io_bridge.as_mut().map(|v| v.start().unwrap());
     }
 
     fn notify_render_tick(&mut self) {

@@ -5,7 +5,7 @@
     "rust.features": [],
 
     //"rust-analyzer.cargo.target": "x86_64-pc-windows-msvc",
-    "rust-analyzer.cargo.target": "x86_64-unknown-linux-gnu",
-    //"rust-analyzer.cargo.target": "wasm32-unknown-unknown",
+    //"rust-analyzer.cargo.target": "x86_64-unknown-linux-gnu",
+    "rust-analyzer.cargo.target": "wasm32-unknown-unknown",
     "rust-analyzer.trace.extension": true,
 }

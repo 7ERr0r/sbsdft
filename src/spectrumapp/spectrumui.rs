@@ -1,5 +1,8 @@
 use super::appstate::get_app_state;
 use super::appstate::AppState;
+use super::appthread::AppFunc;
+use super::appthread::AppMsg;
+use super::appthread::ProcessingApp;
 use super::myvertex::*;
 use super::sbswdft::ChannelSWDFT;
 use super::sbswdft::Collected;
@@ -12,6 +15,7 @@ use super::GraphType;
 use std::cell::RefCell;
 use std::collections::BTreeSet;
 use std::collections::VecDeque;
+use std::sync::atomic::Ordering;
 use std::sync::mpsc::Receiver;
 use std::sync::Mutex;
 
@@ -31,10 +35,11 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 pub struct SpectrumUI {
+    pub app: Option<Arc<ProcessingApp>>,
     gui_scale: u32,
     divisions_hz: bool,
 
-    sliding_impls: Vec<RefCell<SlidingMainThread>>,
+    sliding_impls: Vec<RefCell<SlidingChannel>>,
 
     display_params: DisplayParams,
     mouse_pos: cgmath::Vector2<f32>,
@@ -50,9 +55,14 @@ pub struct SpectrumUI {
     logarithmic_scale: bool,
 }
 
-pub struct SlidingMainThread {
+pub enum RendererMsg {
+    NewSpectrum(Collected),
+    ConfigUpdate(SpectrumConfig),
+}
+
+pub struct SlidingChannel {
     pub sliding_rc: Arc<Mutex<SlidingImpl>>,
-    pub spectrum_receiver: Receiver<Collected>,
+    pub spectrum_receiver: Receiver<RendererMsg>,
     pub last_rolling_gain: f64,
     pub collected_spectrums: VecDeque<Collected>,
 }
@@ -69,10 +79,11 @@ impl SpectrumUI {
     pub fn new(
         config: SpectrumConfig,
         font_atlas: FontAtlas,
-        sliding_impls: Vec<SlidingMainThread>,
+        sliding_impls: Vec<SlidingChannel>,
     ) -> Self {
         let celled = sliding_impls.into_iter().map(|s| RefCell::new(s)).collect();
         Self {
+            app: None,
             gui_scale: 2,
             divisions_hz: true,
 
@@ -111,23 +122,41 @@ impl SpectrumUI {
 
     pub fn on_resolution_scale(&mut self, delta: f32) {
         let scale = (2.0 as f32).powf(delta / 10.0);
-        self.zoom_config.wave_cycles_resolution *= scale;
+
+        self.run_main(Box::new(move |app| {
+            for sliding_arc in &app.sliding_channels {
+                let mut channel = sliding_arc.lock().unwrap();
+
+                match &mut *channel {
+                    SlidingImpl::DFT(dft) => {
+                        dft.config.wave_cycles_resolution *= scale;
+                    }
+                }
+            }
+        }));
 
         self.reinit_spectrum();
     }
 
-    pub fn move_spectrum(&mut self, left: bool, amount: i32) {
-        for sliding_cell in &self.sliding_impls {
-            let sliding_main = sliding_cell.borrow();
-            let mut channel = sliding_main.sliding_rc.lock().unwrap();
+    pub fn run_main(&self, f: Box<AppFunc>) {
+        if let Some(app) = &self.app {
+            let _ = app.main_tx.try_send(AppMsg::RunFunc(f));
+        }
+    }
 
-            match &mut *channel {
-                SlidingImpl::DFT(dft) => {
-                    dft.move_bins(left, amount);
-                    self.zoom_config = dft.config.clone();
+    pub fn move_spectrum(&mut self, left: bool, amount: i32) {
+        self.run_main(Box::new(move |app| {
+            for sliding_arc in &app.sliding_channels {
+                let mut channel = sliding_arc.lock().unwrap();
+
+                match &mut *channel {
+                    SlidingImpl::DFT(dft) => {
+                        dft.move_bins(left, amount);
+                        //self.zoom_config = dft.config.clone();
+                    }
                 }
             }
-        }
+        }));
     }
 
     pub fn toggle_peaks(&mut self) {
@@ -142,67 +171,70 @@ impl SpectrumUI {
     }
 
     pub fn cycle_method(&mut self) {
-        for sliding_cell in &self.sliding_impls {
-            let sliding_main = sliding_cell.borrow();
-            let mut channel = sliding_main.sliding_rc.lock().unwrap();
+        self.run_main(Box::new(move |app| {
+            for sliding_arc in &app.sliding_channels {
+                let mut channel = sliding_arc.lock().unwrap();
 
-            match &mut *channel {
-                SlidingImpl::DFT(dft) => {
-                    let mut method = match &dft.spectrum_bins {
-                        SpectrumBins::DFT(_) => 0,
-                        SpectrumBins::NC(_) => 1,
-                    };
-                    method = (method + 1) % 2;
-                    let bins = ChannelSWDFT::make_spectrum_bins(method, &dft.config);
-                    dft.spectrum_bins = bins;
+                match &mut *channel {
+                    SlidingImpl::DFT(dft) => {
+                        let mut method = match &dft.spectrum_bins {
+                            SpectrumBins::DFT(_) => 0,
+                            SpectrumBins::NC(_) => 1,
+                        };
+                        method = (method + 1) % 2;
+                        let bins = ChannelSWDFT::make_spectrum_bins(method, &dft.config);
+                        dft.spectrum_bins = bins;
+                    }
                 }
             }
-        }
+        }));
     }
 
     pub fn toggle_pause(&mut self) {
-        for sliding_cell in &self.sliding_impls {
-            let sliding_main = sliding_cell.borrow();
-            let mut channel = sliding_main.sliding_rc.lock().unwrap();
-            match &mut *channel {
-                SlidingImpl::DFT(dft) => {
-                    dft.paused = !dft.paused;
+        self.run_main(Box::new(move |app| {
+            for sliding_arc in &app.sliding_channels {
+                let mut channel = sliding_arc.lock().unwrap();
+                match &mut *channel {
+                    SlidingImpl::DFT(dft) => {
+                        dft.paused = !dft.paused;
+                    }
                 }
             }
-        }
+        }));
     }
 
     pub fn toggle_colorize(&mut self) {
-        for sliding_cell in &self.sliding_impls {
-            let sliding_main = sliding_cell.borrow();
-            let mut channel = sliding_main.sliding_rc.lock().unwrap();
-            match &mut *channel {
-                SlidingImpl::DFT(dft) => {
-                    dft.should_colorize = !dft.should_colorize;
+        self.run_main(Box::new(move |app| {
+            for sliding_arc in &app.sliding_channels {
+                let mut channel = sliding_arc.lock().unwrap();
+                match &mut *channel {
+                    SlidingImpl::DFT(dft) => {
+                        dft.should_colorize = !dft.should_colorize;
+                    }
                 }
             }
-        }
+        }));
     }
 
     pub fn toggle_subtraction_peaks(&mut self) {
-        for sliding_cell in &self.sliding_impls {
-            let sliding_main = sliding_cell.borrow();
-            let mut channel = sliding_main.sliding_rc.lock().unwrap();
-            match &mut *channel {
-                SlidingImpl::DFT(dft) => {
-                    dft.config.subtraction_peaks = !dft.config.subtraction_peaks;
-                    self.zoom_config = dft.config.clone();
+        self.run_main(Box::new(move |app| {
+            for sliding_arc in &app.sliding_channels {
+                let mut channel = sliding_arc.lock().unwrap();
+                match &mut *channel {
+                    SlidingImpl::DFT(dft) => {
+                        dft.config.subtraction_peaks = !dft.config.subtraction_peaks;
+                        //self.zoom_config = dft.config.clone();
+                    }
                 }
             }
-        }
+        }));
     }
 
     pub fn cycle_window_type(&mut self) {
         //self.win_id = (self.win_id + 1) % 3;
-        {
-            for sliding_cell in &self.sliding_impls {
-                let sliding_main = sliding_cell.borrow();
-                let mut channel = sliding_main.sliding_rc.lock().unwrap();
+        self.run_main(Box::new(move |app| {
+            for sliding_arc in &app.sliding_channels {
+                let mut channel = sliding_arc.lock().unwrap();
                 match &mut *channel {
                     SlidingImpl::DFT(dft) => {
                         let w: u8 = dft.collector.windowtype.into();
@@ -214,7 +246,7 @@ impl SpectrumUI {
                     }
                 }
             }
-        }
+        }));
         self.reset_window_kernel();
     }
     pub fn change_window_subdivisions(&mut self, more: bool) {
@@ -231,82 +263,84 @@ impl SpectrumUI {
     }
 
     pub fn change_collect_freq(&mut self, more: bool) {
-        for sliding_cell in &self.sliding_impls {
-            let sliding_main = sliding_cell.borrow();
-            let mut channel = sliding_main.sliding_rc.lock().unwrap();
+        self.run_main(Box::new(move |app| {
+            for sliding_arc in &app.sliding_channels {
+                let mut channel = sliding_arc.lock().unwrap();
 
-            match &mut *channel {
-                SlidingImpl::DFT(dft) => {
-                    if more {
-                        dft.set_collect_frequency(dft.collect_frequency + 60);
-                    } else {
-                        if dft.collect_frequency >= 120 {
-                            let x = dft.collect_frequency - 60;
-                            dft.set_collect_frequency(x);
+                match &mut *channel {
+                    SlidingImpl::DFT(dft) => {
+                        if more {
+                            dft.set_collect_frequency(dft.collect_frequency + 60);
+                        } else {
+                            if dft.collect_frequency >= 120 {
+                                let x = dft.collect_frequency - 60;
+                                dft.set_collect_frequency(x);
+                            }
                         }
                     }
                 }
             }
-        }
+        }));
     }
 
     fn reset_window_kernel(&mut self) {
         //let win_id = self.win_id;
         let subdivisions = self.subdivisions;
-        for sliding_cell in &self.sliding_impls {
-            let sliding_main = sliding_cell.borrow();
-            let mut channel = sliding_main.sliding_rc.lock().unwrap();
+        self.run_main(Box::new(move |app| {
+            for sliding_arc in &app.sliding_channels {
+                let mut channel = sliding_arc.lock().unwrap();
 
-            match &mut *channel {
-                SlidingImpl::DFT(dft) => {
-                    // let wintype = match win_id {
-                    //     0 => WindowType::BlackmanNutall,
-                    //     1 => WindowType::ExpBlackman,
-                    //     2 => WindowType::Rect,
-                    //     _ => unreachable!(),
-                    // };
-                    dft.collector =
-                        ChannelSWDFT::init_collector(subdivisions, dft.collector.windowtype);
-                }
-            }
-        }
-    }
-
-    pub fn measurement_reset(&mut self) {
-        for sliding_cell in &self.sliding_impls {
-            let sliding_main = sliding_cell.borrow();
-            let mut channel = sliding_main.sliding_rc.lock().unwrap();
-            match &mut *channel {
-                SlidingImpl::DFT(dft) => {
-                    let measure_bin = dft.measure_bins.get_mut(0);
-                    match measure_bin {
-                        None => {}
-                        Some(bin) => {
-                            bin.reset_measurement(&self.zoom_config);
-                        }
+                match &mut *channel {
+                    SlidingImpl::DFT(dft) => {
+                        // let wintype = match win_id {
+                        //     0 => WindowType::BlackmanNutall,
+                        //     1 => WindowType::ExpBlackman,
+                        //     2 => WindowType::Rect,
+                        //     _ => unreachable!(),
+                        // };
+                        dft.collector =
+                            ChannelSWDFT::init_collector(subdivisions, dft.collector.windowtype);
                     }
                 }
             }
-        }
+        }));
     }
 
-    pub fn measurement_change_freq(&mut self, left: bool) {
-        for sliding_cell in &self.sliding_impls {
-            let sliding_main = sliding_cell.borrow();
-            let mut channel = sliding_main.sliding_rc.lock().unwrap();
-            match &mut *channel {
-                SlidingImpl::DFT(dft) => {
-                    let measure_bin = dft.measure_bins.get_mut(0);
-                    match measure_bin {
-                        None => {}
-                        Some(bin) => {
-                            bin.adjust_freq_left(left, &self.zoom_config);
-                        }
-                    }
-                }
-            }
-        }
-    }
+    // pub fn measurement_reset(&mut self) {
+    //     for sliding_cell in &self.sliding_impls {
+    //         let sliding_main = sliding_cell.borrow();
+    //         let mut channel = sliding_main.sliding_rc.lock().unwrap();
+    //         match &mut *channel {
+    //             SlidingImpl::DFT(dft) => {
+    //                 let measure_bin = dft.measure_bins.get_mut(0);
+    //                 match measure_bin {
+    //                     None => {}
+    //                     Some(bin) => {
+    //                         bin.reset_measurement(&self.zoom_config);
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+
+    // pub fn measurement_change_freq(&mut self, left: bool) {
+    //     for sliding_cell in &self.sliding_impls {
+    //         let sliding_main = sliding_cell.borrow();
+    //         let mut channel = sliding_main.sliding_rc.lock().unwrap();
+    //         match &mut *channel {
+    //             SlidingImpl::DFT(dft) => {
+    //                 let measure_bin = dft.measure_bins.get_mut(0);
+    //                 match measure_bin {
+    //                     None => {}
+    //                     Some(bin) => {
+    //                         bin.adjust_freq_left(left, &self.zoom_config);
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
 
     fn toggle_divisions_hz(&mut self) {
         self.divisions_hz = !self.divisions_hz;
@@ -318,12 +352,23 @@ impl SpectrumUI {
         //let zoom = self.zoom / 10.0;
         let dy = dy / 10.0;
 
-        let zoom_config = &mut self.zoom_config;
+        let scaled_pos_x = self.mouse_pos.x / self.display_params.dx as f32;
+        self.run_main(Box::new(move |app| {
+            for sliding_arc in &app.sliding_channels {
+                let mut channel = sliding_arc.lock().unwrap();
+                match &mut *channel {
+                    SlidingImpl::DFT(dft) => {
+                        Self::on_mouse_wheel_config(&mut dft.config, dy, scaled_pos_x);
+                    }
+                }
+            }
+        }));
 
-        let mouse_freq = ChannelSWDFT::num_probe_x_to_freq(
-            zoom_config,
-            self.mouse_pos.x / self.display_params.dx as f32,
-        );
+        self.reinit_spectrum();
+    }
+
+    pub fn on_mouse_wheel_config(zoom_config: &mut SpectrumConfig, dy: f32, scaled_pos_x: f32) {
+        let mouse_freq = ChannelSWDFT::num_probe_x_to_freq(zoom_config, scaled_pos_x);
 
         {
             let octave_min = zoom_config.min_f.log2();
@@ -358,22 +403,22 @@ impl SpectrumUI {
                 zoom_config.min_f = 4.0;
             }
         }
-
-        self.reinit_spectrum();
     }
 
     fn reinit_spectrum(&self) {
-        for sliding_cell in &self.sliding_impls {
-            let sliding_main = sliding_cell.borrow();
-            let mut channel = sliding_main.sliding_rc.lock().unwrap();
-            match &mut *channel {
-                SlidingImpl::DFT(dft) => {
-                    //dft.spectrum_bins = ChannelSWDFT::make_spectrum(&zoom_config);
-                    //ChannelSWDFT::init_spectrum(&self.zoom_config, &mut dft.spectrum_bins);
-                    dft.reinit_my_spectrum(&self.zoom_config);
+        self.run_main(Box::new(move |app| {
+            for sliding_arc in &app.sliding_channels {
+                let mut channel = sliding_arc.lock().unwrap();
+
+                match &mut *channel {
+                    SlidingImpl::DFT(dft) => {
+                        //dft.spectrum_bins = ChannelSWDFT::make_spectrum(&zoom_config);
+                        //ChannelSWDFT::init_spectrum(&self.zoom_config, &mut dft.spectrum_bins);
+                        dft.reinit_my_spectrum();
+                    }
                 }
             }
-        }
+        }));
     }
 
     pub fn on_cursor_move(&mut self, position: (f64, f64)) {
@@ -384,7 +429,7 @@ impl SpectrumUI {
         if self.dragging {
             let delta = position_vec - self.last_drag_pos;
 
-            let threshold = self.display_params.dx as f32 / self.zoom_config.num_bins as f32;
+            let threshold = self.display_params.dx as f32 / self._init_config.num_bins as f32;
             if delta.x.abs() >= threshold {
                 let drag_bins = (delta.x / threshold) as i32;
 
@@ -435,36 +480,37 @@ impl SpectrumUI {
                 }
             }
         } else {
-            if pressed {
-                let zoom_config = &mut self.zoom_config;
-                let freq = ChannelSWDFT::num_probe_x_to_freq(
-                    zoom_config,
-                    self.mouse_pos.x / self.display_params.dx as f32,
-                );
-                println!("measuring frequency: {:.2} Hz", freq);
+            // if pressed {
+            //     let zoom_config = &mut self.zoom_config;
+            //     let freq = ChannelSWDFT::num_probe_x_to_freq(
+            //         zoom_config,
+            //         self.mouse_pos.x / self.display_params.dx as f32,
+            //     );
+            //     println!("measuring frequency: {:.2} Hz", freq);
 
-                let sliding_impl = &self.sliding_impls[0];
-                let sliding_impl = sliding_impl.borrow();
-                let mut l_channel = sliding_impl.sliding_rc.lock().unwrap();
-                match &mut *l_channel {
-                    SlidingImpl::DFT(dft) => {
-                        dft.measure_bins.clear();
-                        let mut bin = MeasureBin::new();
-                        let c = &zoom_config;
-                        let sample_rate = c.sample_rate as f32;
-                        bin.bin.reinit_exact(
-                            freq as f64,
-                            phase_shift_per_sample_to_fixed_point(freq / sample_rate),
-                            10 + c.wave_cycles_resolution as usize * 4
-                                + ((c.wave_cycles_resolution * sample_rate)
-                                    / (c.resolution_low_f_shelf_hz + freq))
-                                    as usize,
-                            true,
-                        );
-                        dft.measure_bins.push_back(bin);
-                    }
-                }
-            }
+            //     let sliding_impl = &self.sliding_impls[0];
+            //     let sliding_impl = sliding_impl.borrow();
+            //     let mut l_channel = sliding_impl.sliding_rc.lock().unwrap();
+            //     match &mut *l_channel {
+            //         SlidingImpl::DFT(dft) => {
+            //             dft.measure_bins.clear();
+            //             let mut bin = MeasureBin::new();
+            //             let c = &zoom_config;
+            //             let sample_rate = c.sample_rate as f32;
+            //             bin.bin.reinit_exact(
+            //                 freq as f64,
+            //                 phase_shift_per_sample_to_fixed_point(freq / sample_rate),
+            //                 10 + c.wave_cycles_resolution as usize * 4
+            //                     + ((c.wave_cycles_resolution * sample_rate)
+            //                         / (c.resolution_low_f_shelf_hz + freq))
+            //                         as usize,
+            //                 true,
+            //             );
+            //             dft.measure_bins.push_back(bin);
+            //         }
+            //     }
+            
+        
         }
     }
 
@@ -635,6 +681,9 @@ impl SpectrumUI {
                 if let Some(wasm_rayon) = wasm_rayon {
                     alive_threads = wasm_rayon.alive_threads.load(Ordering::Relaxed);
                     wanted_threads = wasm_rayon.num_threads;
+                } else {
+                    alive_threads = 0;
+                    wanted_threads = 0;
                 }
             }
             #[cfg(not(target_arch = "wasm32"))]
@@ -1176,7 +1225,7 @@ impl SpectrumUI {
     }
 
     pub fn render_grapher(
-        &self,
+        &mut self,
         //channels: &mut Vec<Arc<Mutex<SlidingImpl>>>,
         pc: &mut Vec<PosColVertex>,
         pct: &mut Vec<PosColTexVertex>,
@@ -1232,13 +1281,20 @@ impl SpectrumUI {
             let mut sliding_main = sliding_cell.borrow_mut();
 
             loop {
-                let received = sliding_main.spectrum_receiver.try_recv();
-                if let Ok(received) = received {
-                    sliding_main.last_rolling_gain = received.cur_rolling_gain;
-                    sliding_main.collected_spectrums.push_front(received);
-                } else {
-                    break;
+                let msg = sliding_main.spectrum_receiver.try_recv();
+                match msg {
+                    Ok(RendererMsg::NewSpectrum(collected)) => {
+                        sliding_main.last_rolling_gain = collected.cur_rolling_gain;
+                        sliding_main.collected_spectrums.push_front(collected);
+                    }
+                    Ok(RendererMsg::ConfigUpdate(config)) => {
+                        self.zoom_config = config;
+                    }
+                    Err(_) => {
+                        break;
+                    }
                 }
+
             }
 
             let mut wanted = 20;
