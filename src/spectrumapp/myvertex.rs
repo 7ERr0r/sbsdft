@@ -23,7 +23,6 @@ pub struct PosColTexVertex {
     pub tex: [f32; 2],
 }
 
-
 impl FontVertex for PosColTexVertex {
     fn pos_col_tex(pos: [f32; 2], color: u32, tex: [f32; 2]) -> Self {
         PosColTexVertex { pos, color, tex }

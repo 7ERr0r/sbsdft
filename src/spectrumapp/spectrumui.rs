@@ -1518,7 +1518,6 @@ impl SpectrumUI {
         for (channel_num, sliding_cell) in self.sliding_impls.iter().enumerate() {
             let mut sliding_main = sliding_cell.borrow_mut();
 
-            
             loop {
                 let received = sliding_main.spectrum_receiver.try_recv();
                 if let Ok(received) = received {
@@ -1533,8 +1532,6 @@ impl SpectrumUI {
             if let Some(first) = sliding_main.collected_spectrums.front() {
                 wanted = 3 * first.snapshot.collect_frequency / 60;
             }
-            
-
 
             let mut num_collected = sliding_main.collected_spectrums.len();
             if num_collected > wanted {
@@ -1552,7 +1549,7 @@ impl SpectrumUI {
                 if let Some(first) = sliding_main.collected_spectrums.front() {
                     self.render_gui_divisions_grid(&first.snapshot, pc, pct, gain);
                 }
-                
+
                 //self.render_measurement(pc, pct, dft);
                 self.render_tooltip(pc, pct, None);
             }

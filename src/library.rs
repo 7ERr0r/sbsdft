@@ -1,6 +1,3 @@
-
-
-
 use std::mem::MaybeUninit;
 
 // #[cfg(target_arch = "wasm32")]
@@ -22,12 +19,10 @@ use std::mem::MaybeUninit;
 // static GLOBAL: KWasmTracingAllocator<std::alloc::System> =
 //     KWasmTracingAllocator(std::alloc::System);
 
-
 pub mod counteralloc;
 
 // #[global_allocator]
 // static GLOBAL: counteralloc::Counter = counteralloc::Counter;
-
 
 #[cfg(target_arch = "wasm32")]
 pub mod spectrumapp;
@@ -42,13 +37,11 @@ pub fn main() {
     // do nothing (threads also call this)
 }
 
-
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn start_dft(wasm_bindgen_path: &str) {
     use wasm_bindgen::prelude::*;
 
-    
     std::alloc::set_alloc_error_hook(|layout| {
         panic!("memory allocation of {} bytes failed", layout.size());
     });
@@ -60,8 +53,11 @@ pub fn start_dft(wasm_bindgen_path: &str) {
         klog!("panicking...");
 
         console_error_panic_hook::hook(info);
-        
-        klog!("mem size: {}", crate::spectrumapp::kwasm::get_wasm_mem_size());
+
+        klog!(
+            "mem size: {}",
+            crate::spectrumapp::kwasm::get_wasm_mem_size()
+        );
         //klog!("rust panic: {}", info);
     }));
 
@@ -87,5 +83,3 @@ pub fn start_spectrumapp() {
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn main() {}
-
-

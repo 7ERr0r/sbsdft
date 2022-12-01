@@ -1,8 +1,6 @@
-use super::sbswdft::SlidingImpl;
 use super::MyParams;
 use std::rc::Rc;
 use std::sync::mpsc::SyncSender;
-use std::sync::Weak;
 
 use std::cell::RefCell;
 
@@ -53,11 +51,13 @@ fn start_writer(
                         }
                     }
                 } else {
-                    writeln!(&mut descbuf, 
+                    writeln!(
+                        &mut descbuf,
                         "device with device_index:{} name:{} has no .default_input_config()",
                         device.name().unwrap_or("[noname]".to_string()),
                         device_index
-                    ).unwrap();
+                    )
+                    .unwrap();
                 }
             }
             found_device

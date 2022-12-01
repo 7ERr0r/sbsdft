@@ -8,11 +8,14 @@ pub struct KRGBAImage {
 }
 impl KRGBAImage {
     pub fn sub<'a>(&'a self) -> RGBASub<'a> {
-        RGBASub{
+        RGBASub {
             offset: 0,
             img: self,
-            min: KPoint{x: 0, y: 0},
-            max: KPoint{x: self.dx, y: self.dy},
+            min: KPoint { x: 0, y: 0 },
+            max: KPoint {
+                x: self.dx,
+                y: self.dy,
+            },
         }
     }
 }
@@ -25,7 +28,7 @@ pub struct RGBASub<'a> {
 impl<'a> RGBASub<'a> {
     pub fn sub_image<'b>(&self, min: KPoint, max: KPoint) -> Self {
         let i = self.pix_offset(&min);
-        Self{
+        Self {
             offset: i,
             min,
             max,
@@ -38,7 +41,9 @@ impl<'a> RGBASub<'a> {
     }
 
     pub fn pix_offset(&self, p: &KPoint) -> usize {
-        self.offset + (p.y as usize - self.min.y as usize) * self.stride() + (p.x as usize - self.min.x as usize) * 4
+        self.offset
+            + (p.y as usize - self.min.y as usize) * self.stride()
+            + (p.x as usize - self.min.x as usize) * 4
     }
 }
 pub struct KTexture {
@@ -79,18 +84,11 @@ impl fmt::Debug for KRect {
 impl KRect {
     pub fn at_origin(dx: u32, dy: u32, atlas_id: u32) -> Self {
         KRect {
-            min: KPoint{
-                x: 0,
-                y: 0,
-            },
-            max: KPoint{
-                x: dx,
-                y: dy,
-            },
+            min: KPoint { x: 0, y: 0 },
+            max: KPoint { x: dx, y: dy },
             atlas_id,
         }
     }
-
 
     pub fn dx(&self) -> u32 {
         self.max.x - self.min.x
@@ -173,25 +171,15 @@ pub struct FRect {
     pub atlas_id: u32,
 }
 
-
 impl Default for FRect {
-    fn default() -> Self { 
+    fn default() -> Self {
         Self {
-            scale: FPoint{
-                x: 1.0,
-                y: 1.0,
-            },
-            min: FPoint {
-                x: 0.0,
-                y: 0.0,
-            },
-            max: FPoint {
-                x: 128.0,
-                y: 128.0,
-            },
+            scale: FPoint { x: 1.0, y: 1.0 },
+            min: FPoint { x: 0.0, y: 0.0 },
+            max: FPoint { x: 128.0, y: 128.0 },
             atlas_id: 0,
         }
-     }
+    }
 }
 
 pub struct RectAllocator {

@@ -117,7 +117,7 @@ impl KRayonPoolBuilder {
         use crate::klog;
         let num_threads = selfref.lock().unwrap().num_threads;
         klog!("rayon spawning WorkerPool");
-        let js_pool = super::pool::WorkerPool::new(num_threads+1)
+        let js_pool = super::pool::WorkerPool::new(num_threads + 1)
             .map_err(|err| {
                 //klog!("rayon spawning WorkerPool: {:?}", err);
                 err

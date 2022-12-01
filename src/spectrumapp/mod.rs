@@ -10,9 +10,9 @@ pub mod adevice_cpal;
 #[cfg(target_arch = "wasm32")]
 pub mod adevice_web;
 
-use std::collections::VecDeque;
 use crate::spectrumapp::spectrumui::SlidingMainThread;
 use kikod::Kikod;
+use std::collections::VecDeque;
 use std::sync::Mutex;
 use winit::event::VirtualKeyCode;
 
@@ -35,8 +35,8 @@ pub mod tracingalloc;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm_rayon;
 
-#[cfg(feature = "rawwebgl")]
-pub mod rawwebgl;
+// #[cfg(feature = "rawwebgl")]
+// pub mod rawwebgl;
 
 use fontrenderer::FontAtlas;
 use fontrenderer::FontRenderer;
@@ -58,11 +58,8 @@ use std::sync::Arc;
 use std::sync::Weak;
 use wgpu::util::DeviceExt;
 
-
-
 use num_enum::IntoPrimitive;
 use num_enum::TryFromPrimitive;
-
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -150,6 +147,7 @@ impl PCMReceiver for SlidingImplReceiver {
     }
 }
 
+#[allow(unused)]
 fn keycode2kikod(vkeycode: VirtualKeyCode) -> Kikod {
     match vkeycode {
         VirtualKeyCode::Key1 => Kikod::Key1,
@@ -335,13 +333,14 @@ struct Example {
     sliding_renderer: SlidingRenderer,
     index_buf: wgpu::Buffer,
     uniform_buf: wgpu::Buffer,
+    #[allow(unused)]
     impl_params: MyParams,
 }
 
 fn create_lines_render_pipeline(
     device: &wgpu::Device,
     sconfig: &wgpu::SurfaceConfiguration,
-    adapter: &wgpu::Adapter,
+    _adapter: &wgpu::Adapter,
 ) -> (wgpu::RenderPipeline, wgpu::BindGroupLayout) {
     //let vs_module = device.create_shader_module(&wgpu::include_spirv!("shaders/shader.vert.spv"));
     //let fs_module = device.create_shader_module(&wgpu::include_spirv!("shaders/shader.frag.spv"));
@@ -809,29 +808,6 @@ pub struct MyParams {
     audio_device: Option<String>,
 }
 
-fn create_texels(size: usize) -> Vec<u8> {
-    use std::iter;
-
-    (0..size * size)
-        .flat_map(|id| {
-            // get high five for recognizing this ;)
-            let cx = 3.0 * (id % size) as f32 / (size - 1) as f32 - 2.0;
-            let cy = 2.0 * (id / size) as f32 / (size - 1) as f32 - 1.0;
-            let (mut x, mut y, mut count) = (cx, cy, 0);
-            while count < 0xFF && x * x + y * y < 4.0 {
-                let old_x = x;
-                x = x * x - y * y + cx;
-                y = 2.0 * old_x * y + cy;
-                count += 1;
-            }
-            iter::once(0xFF - (count * 5) as u8)
-                .chain(iter::once(0xFF - (count * 15) as u8))
-                .chain(iter::once(0xFF - (count * 50) as u8))
-                .chain(iter::once(1))
-        })
-        .collect()
-}
-
 fn create_indices() -> Vec<u16> {
     let mut index_data = Vec::new();
 
@@ -848,26 +824,27 @@ fn create_indices() -> Vec<u16> {
     index_data
 }
 
-fn nonempty_vertex_buffer(
-    drop_defer: &RefCell<Option<wgpu::Buffer>>,
-    device: &wgpu::Device,
-    label: &str,
-    content: &[u8],
-) -> () {
-    if content.len() == 0 {
-        drop_defer.replace(None);
-    } else {
-        drop_defer.replace(Some(device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some(label),
-                contents: &content,
-                usage: wgpu::BufferUsages::VERTEX,
-            },
-        )));
 
-        //drop_defer.last()
-    }
-}
+// fn nonempty_vertex_buffer(
+//     drop_defer: &RefCell<Option<wgpu::Buffer>>,
+//     device: &wgpu::Device,
+//     label: &str,
+//     content: &[u8],
+// ) -> () {
+//     if content.len() == 0 {
+//         drop_defer.replace(None);
+//     } else {
+//         drop_defer.replace(Some(device.create_buffer_init(
+//             &wgpu::util::BufferInitDescriptor {
+//                 label: Some(label),
+//                 contents: &content,
+//                 usage: wgpu::BufferUsages::VERTEX,
+//             },
+//         )));
+
+//         //drop_defer.last()
+//     }
+// }
 
 impl framework::Example<MyParams> for Example {
     fn required_limits() -> wgpu::Limits {
@@ -895,21 +872,8 @@ impl framework::Example<MyParams> for Example {
         // buffer for simulation parameters uniform
         crate::spectrumapp::kwasm::debug_wasm_mem("Example init");
 
-        let sim_param_data = [
-            0.04f32, // deltaT
-            0.1,     // rule1Distance
-            0.025,   // rule2Distance
-            0.025,   // rule3Distance
-            0.02,    // rule1Scale
-            0.05,    // rule2Scale
-            0.005,   // rule3Scale
-        ]
-        .to_vec();
-        /*let sim_param_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Simulation Parameter Buffer"),
-            contents: bytemuck::cast_slice(&sim_param_data),
-            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-        });*/
+
+
         crate::spectrumapp::kwasm::debug_wasm_mem("generate_matrix");
         let mx_total = Self::generate_matrix(sconfig.width as f32, sconfig.height as f32);
         let mx_ref: &[f32; 16] = mx_total.as_ref();
@@ -1175,7 +1139,7 @@ impl framework::Example<MyParams> for Example {
             winit::event::WindowEvent::Focused(true) => {}
             winit::event::WindowEvent::CloseRequested => {}
             winit::event::WindowEvent::KeyboardInput { input, .. } => {
-                use winit::event::VirtualKeyCode;
+
                 if input.state == winit::event::ElementState::Pressed {
                     match input.virtual_keycode {
                         Some(key) => match key {
@@ -1320,7 +1284,7 @@ impl framework::Example<MyParams> for Example {
                 }
             }
             winit::event::WindowEvent::MouseWheel { delta, .. } => match delta {
-                winit::event::MouseScrollDelta::LineDelta(dx, dy) => {
+                winit::event::MouseScrollDelta::LineDelta(_dx, dy) => {
                     klog!("scroll  LineDelta {}", dy);
                     self.sliding_renderer
                         .spectrum_ui
@@ -1335,7 +1299,6 @@ impl framework::Example<MyParams> for Example {
                         .as_mut()
                         .map(|v| v.on_mouse_wheel(dy));
                 }
-                _ => {}
             },
             winit::event::WindowEvent::CursorMoved { position, .. } => {
                 self.sliding_renderer
@@ -1548,11 +1511,9 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-   /// Substring of audio input device to use
-   #[arg(short, long)]
-   input_audio_device: Option<String>,
-
-
+    /// Substring of audio input device to use
+    #[arg(short, long)]
+    input_audio_device: Option<String>,
 }
 
 pub fn main() {
@@ -1566,7 +1527,6 @@ pub fn main() {
     };
     framework::run::<MyParams, Example>("sbsdft", params);
 }
-
 
 #[derive(Copy, Clone, TryFromPrimitive, IntoPrimitive)]
 #[repr(u8)]

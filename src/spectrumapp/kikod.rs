@@ -1,5 +1,3 @@
-
-
 pub enum Kikod {
     /// The '1' key over the letters.
     Key1,

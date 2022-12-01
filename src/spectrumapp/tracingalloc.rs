@@ -1,6 +1,5 @@
-
-use std::alloc::Layout;
 use std::alloc::GlobalAlloc;
+use std::alloc::Layout;
 
 #[derive(Debug)]
 pub struct KWasmTracingAllocator<A>(pub A)
@@ -26,7 +25,6 @@ where
         let size = layout.size();
         let align = layout.align();
         self.0.dealloc(pointer, layout);
-
     }
 
     unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {

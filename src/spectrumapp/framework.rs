@@ -3,7 +3,8 @@ use std::future::Future;
 use std::time::{Duration, Instant};
 use winit::dpi::PhysicalSize;
 use winit::dpi::Size;
-use winit::event_loop::EventLoopProxy;
+
+
 use winit::{
     event::{self, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
@@ -32,6 +33,7 @@ pub enum ShaderStage {
     Compute,
 }
 
+#[allow(unused)]
 pub enum MyEvent {
     CanvasResize(i64, i64),
 }
@@ -344,7 +346,7 @@ async fn setup<P, E: Example<P>>(title: &str) -> Setup {
     );
 
     // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the surface.
-    let mut needed_limits = E::required_limits().using_resolution(adapter.limits());
+    let needed_limits = E::required_limits().using_resolution(adapter.limits());
 
     use crate::klog;
     klog!("limits: {:?}", needed_limits);

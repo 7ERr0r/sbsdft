@@ -4,7 +4,6 @@ use crate::spectrumapp::spectrumui::StateSnapshot;
 
 use super::PosColVertex;
 use lazy_static::lazy_static;
-use std::rc::Rc;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::Sender;
 use std::sync::Mutex;
@@ -196,11 +195,11 @@ fn note2colorchord(note: f32) -> f32 {
 
 pub fn hz2color_rgb(freq_hz: f32) -> (f32, f32, f32) {
     let key;
-    let reverse; // = 1.0;
+    //let reverse; // = 1.0;
     key = 440.0; // regular
                  //key = 280.0; // lumi video keyboard
                  //key = 275.0; // color chord default
-    reverse = -1.0;
+    //reverse = -1.0;
 
     // mapping to yellow (2^(1/12))
     let key = key; // * 1.12246204830;
@@ -496,7 +495,7 @@ impl DftBin {
     }
 
     pub fn reinit_exact(&mut self, freq: f64, pulsation: u32, new_length: usize, empty: bool) {
-        let freq = freq.abs();
+        let _freq = freq.abs();
         //self.partial_sums.resize(0, Default::default());
 
         // if self.partial_sums.capacity() >= 8 * length {
@@ -791,7 +790,7 @@ impl MeasureBin {
         }
     }
 
-    pub fn reset_measurement(&mut self, c: &SpectrumConfig) {
+    pub fn reset_measurement(&mut self, _c: &SpectrumConfig) {
         self.cumulative_phase_change = 0.0;
         self.sample_counter = 0;
         self.first_measurement = true;
@@ -1099,7 +1098,7 @@ impl ChannelSWDFT {
     pub fn make_spectrum(num_bins: usize) -> VecDeque<RegularBin> {
         let mut spectrum_bins = VecDeque::new();
 
-        for i in 0..num_bins {
+        for _i in 0..num_bins {
             spectrum_bins.push_back(RegularBin::new());
         }
         spectrum_bins
@@ -1108,7 +1107,7 @@ impl ChannelSWDFT {
     pub fn make_nc_spectrum(num_bins: usize) -> VecDeque<NCBin> {
         let mut spectrum_bins = VecDeque::new();
 
-        for i in 0..num_bins {
+        for _i in 0..num_bins {
             spectrum_bins.push_back(NCBin::new());
         }
         spectrum_bins
@@ -2017,7 +2016,7 @@ impl ChannelSWDFT {
         struct RunningAvg {
             col: (u64, u64, u64),
             vsuma: u64,
-        };
+        }
 
         let mut avg = RunningAvg {
             col: (0, 0, 0),
@@ -2077,13 +2076,13 @@ impl ChannelSWDFT {
     }
 
     pub fn decolorize_spectrum(spectrum: &mut Vec<SSample>) {
-        for (i, s) in spectrum.iter_mut().enumerate() {
+        for (_i, s) in spectrum.iter_mut().enumerate() {
             s.color = SColor::new(0xFFFFFFFF);
         }
     }
 
     pub fn colorize_spectrum_simple(spectrum: &mut Vec<SSample>) {
-        for (i, s) in spectrum.iter_mut().enumerate() {
+        for (_i, s) in spectrum.iter_mut().enumerate() {
             s.color = SColor::new(0xFFFFFFFF);
         }
     }
@@ -2092,7 +2091,7 @@ impl ChannelSWDFT {
         let max_diff = 0.31;
 
         let mut peak_index = 0;
-        for (i, s) in spectrum.iter_mut().enumerate() {
+        for (_i, s) in spectrum.iter_mut().enumerate() {
             while peak_index < peaks.len() && peaks[peak_index].octave + max_diff < s.octave {
                 peak_index += 1;
             }
