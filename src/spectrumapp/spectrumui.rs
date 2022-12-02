@@ -15,7 +15,6 @@ use super::GraphType;
 use std::cell::RefCell;
 use std::collections::BTreeSet;
 use std::collections::VecDeque;
-use std::sync::atomic::Ordering;
 use std::sync::mpsc::Receiver;
 use std::sync::Mutex;
 
@@ -674,6 +673,7 @@ impl SpectrumUI {
                 use super::wasm_rayon::get_wasm_rayon_pool_builder;
                 let wasm_rayon = get_wasm_rayon_pool_builder();
                 if let Some(wasm_rayon) = wasm_rayon {
+                    use std::sync::atomic::Ordering;
                     alive_threads = wasm_rayon.alive_threads.load(Ordering::Relaxed);
                     wanted_threads = wasm_rayon.num_threads;
                 } else {

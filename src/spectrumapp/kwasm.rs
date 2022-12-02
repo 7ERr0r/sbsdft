@@ -16,7 +16,7 @@ pub fn fix_webgl_color(wgsl_shader: &str) -> String {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn spawn_once<F, T>(tname: &'static str, f: F) -> ()
+pub fn spawn_once<F, T>(_tname: &'static str, f: F) -> ()
 where
     F: FnOnce() -> T,
     F: Send + 'static,
