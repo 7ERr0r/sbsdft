@@ -1,6 +1,9 @@
 use std::collections::VecDeque;
 use std::fmt;
 
+
+
+/// Based on golang's RGBAImage
 pub struct KRGBAImage {
     pub dx: u32,
     pub dy: u32,
@@ -124,6 +127,7 @@ impl KRect {
         }
     }
 
+    #[allow(unused)]
     pub fn split(&self) -> [KRect; 4] {
         let minx = self.min.x;
         let miny = self.min.y;
@@ -184,10 +188,13 @@ impl Default for FRect {
     }
 }
 
+#[allow(unused)]
 pub struct RectAllocator {
     squares_by_size: [VecDeque<KRect>; 16],
 }
-// ffs
+
+
+#[allow(unused)]
 fn power2_of(mut x: u32) -> u32 {
     let mut y = 0;
     while x > 1 {
@@ -197,6 +204,7 @@ fn power2_of(mut x: u32) -> u32 {
     y
 }
 impl RectAllocator {
+    #[allow(unused)]
     pub fn new() -> RectAllocator {
         RectAllocator {
             squares_by_size: Default::default(),
@@ -223,6 +231,7 @@ impl RectAllocator {
         });
     }
 
+    #[allow(unused)]
     pub fn provide_atlases(&mut self, atlas_size: u32, num_atlases: u32) {
         for i in 0..num_atlases {
             self.provide(KRect {
@@ -236,6 +245,7 @@ impl RectAllocator {
         }
     }
 
+    #[allow(unused)]
     pub fn allocate(&mut self, size: u32) -> Option<KRect> {
         //let dy = tex.subRect.dy();
         let exp = power2_of(size);
