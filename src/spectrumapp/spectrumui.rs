@@ -799,9 +799,8 @@ impl SpectrumUI {
 
             fr.draw_string(
                 format!(
-                    //"[Z/X]     rozmyte przebiegi: {}",
-                    "[Z/X]            motion blur: {} ({})",
-                    snapshot.collect_frequency / 60,
+                    "[Z/X]            motion blur: {} Hz (every {} samples)",
+                    snapshot.collect_frequency,
                     snapshot.collect_every,
                 )
                 .as_str(),

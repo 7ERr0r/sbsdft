@@ -15,14 +15,14 @@ pub trait PCMSender: Send + Sync {
 
 #[derive(Clone)]
 pub struct SlidingAppSender {
-    main_tx: Sender<AppMsg>,
+    main_pcm_tx: Sender<AppMsg>,
     channel_num: usize,
 }
 impl SlidingAppSender {
     pub fn new(tx: Sender<AppMsg>, channel_num: usize) -> Self {
         Self {
             channel_num,
-            main_tx: tx,
+            main_pcm_tx: tx,
             //weak_sliding_channels: channels,
         }
     }
@@ -35,7 +35,7 @@ impl PCMSender for SlidingAppSender {
 
     fn send_pcm(&self, num_channels: i32, samples: Vec<f32>) {
         let _ = self
-            .main_tx
+            .main_pcm_tx
             .try_send(AppMsg::PcmAudio(num_channels, samples));
     }
 
@@ -65,14 +65,14 @@ pub struct ProcessingApp {
     me: Weak<Self>,
     pub sliding_channels: Vec<Arc<Mutex<SlidingImpl>>>,
     bufs: Mutex<Vec<Vec<f32>>>,
-    pub main_tx: Sender<AppMsg>,
+    pub main_pcm_tx: Sender<AppMsg>,
     pub main_priority_tx: Sender<AppMsg>,
 }
 
 impl ProcessingApp {
     pub fn new(sliding_channels: Vec<Arc<Mutex<SlidingImpl>>>) -> Arc<Self> {
         let (tx, rx) = bounded(1024);
-        let (priority_tx, priority_rx) = bounded(1024);
+        let (priority_tx, priority_rx) = bounded(8);
 
         let channels = sliding_channels.len();
         let mut bufs: Vec<Vec<f32>> = Vec::with_capacity(channels);
@@ -85,7 +85,7 @@ impl ProcessingApp {
             me: me.clone(),
             sliding_channels: sliding_channels,
             bufs: Mutex::new(bufs),
-            main_tx: tx,
+            main_pcm_tx: tx,
             main_priority_tx: priority_tx,
         });
 
@@ -98,7 +98,7 @@ impl ProcessingApp {
     }
 
     pub fn new_sender(&self) -> SlidingAppSender {
-        SlidingAppSender::new(self.main_tx.clone(), self.sliding_channels.len())
+        SlidingAppSender::new(self.main_pcm_tx.clone(), self.sliding_channels.len())
     }
 
     pub fn main_thread(&self, priority_rx: Receiver<AppMsg>, rx: Receiver<AppMsg>) {

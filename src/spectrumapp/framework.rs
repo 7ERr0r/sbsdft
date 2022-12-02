@@ -234,15 +234,55 @@ async fn setup<P, E: Example<P>>(title: &str) -> Setup {
     }
 }
 
+fn get_window_size_from_screen(window: &web_sys::Window) -> (i64, i64) {
+    let screen = window.screen().unwrap();
+    let document = window.document().unwrap();
+    let document_el = document.document_element().unwrap();
+
+    let ratio = window.device_pixel_ratio();
+
+    //let client_width_height = ' cwh:' + document.documentElement.clientWidth + 'x' + document.documentElement.clientHeight;
+    let screen_dx = screen.width().unwrap() as f64;
+    let screen_dy = screen.height().unwrap() as f64;
+    let dx = screen_dx * ratio;
+    let dy = screen_dy * ratio;
+
+    // let dx = document_el.client_width() as i64;
+    // let dy = document_el.client_height() as i64;
+    let dx = dx as i64;
+    let dy = dy as i64;
+    (dx, dy)
+}
+
+fn get_window_size_from_div_element(window: &web_sys::Window) -> (i64, i64) {
+    //let screen = window.screen().unwrap();
+    let document = window.document().unwrap();
+    let div = document.get_element_by_id("fullscreendiv").unwrap();
+
+    let ratio = window.device_pixel_ratio();
+    // let screen_dx = screen.width().unwrap() as f64;
+    // let screen_dy = screen.height().unwrap() as f64;
+    // let dx = screen_dx * ratio;
+    // let dy = screen_dy * ratio;
+
+    let dx = div.client_width() as f64;
+    let dy = div.client_height() as f64;
+    let dx = dx * ratio;
+    let dy = dy * ratio;
+    let dx = dx as i64;
+    let dy = dy as i64;
+
+    (dx, dy)
+}
+
 #[cfg(target_arch = "wasm32")]
 fn my_resize_handler(window: &winit::window::Window, event_loop: &EventLoop<MyEvent>) {
     use winit::event_loop::EventLoopProxy;
     let proxy: EventLoopProxy<MyEvent> = event_loop.create_proxy();
     let resize_getter = move || -> (i64, i64) {
-        let domwin = web_sys::window().unwrap();
-        let dx = domwin.inner_width().unwrap().as_f64().unwrap() as i64;
-        let dy = domwin.inner_height().unwrap().as_f64().unwrap() as i64;
-        (dx, dy)
+        let window: web_sys::Window = web_sys::window().unwrap();
+
+        get_window_size_from_div_element(&window)
     };
 
     let (dx_init, dy_init) = resize_getter();
@@ -261,12 +301,15 @@ fn my_resize_handler(window: &winit::window::Window, event_loop: &EventLoop<MyEv
     on_resize();
     use wasm_bindgen::closure::Closure;
     let resize_callback = Closure::wrap(Box::new(on_resize) as Box<dyn FnMut()>);
-    web_sys::window().map(|domwin| {
+    if let Some(window) = web_sys::window() {
         use wasm_bindgen::JsCast;
-        domwin
+        //let document = window.document().unwrap();
+        //let body = document.body().unwrap();
+        //let div = document.get_element_by_id("fullscreendiv").unwrap();
+        window
             .add_event_listener_with_callback("resize", resize_callback.as_ref().unchecked_ref())
             .unwrap();
-    });
+    }
     resize_callback.forget();
 }
 

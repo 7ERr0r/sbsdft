@@ -88,9 +88,9 @@ pub fn start_dft(wasm_bindgen_path: &str) {
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
-pub fn start_spectrumapp() {
+pub fn start_spectrumapp(is_mobile: bool) {
     crate::spectrumapp::kwasm::debug_wasm_mem("start_spectrumapp");
-    spectrumapp::main();
+    spectrumapp::main(is_mobile);
 }
 
 #[cfg(not(target_arch = "wasm32"))]

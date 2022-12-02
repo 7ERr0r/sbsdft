@@ -774,6 +774,8 @@ impl Example {
 pub struct MyParams {
     #[cfg(not(target_arch = "wasm32"))]
     audio_device: Option<String>,
+
+    is_mobile: bool,
 }
 
 fn create_indices() -> Vec<u16> {
@@ -1165,7 +1167,6 @@ impl framework::Example<MyParams> for Example {
                             //         .as_mut()
                             //         .map(|v| v.measurement_reset());
                             //}
-
                             VirtualKeyCode::S => {
                                 self.sliding_renderer
                                     .spectrum_ui
@@ -1471,7 +1472,7 @@ struct Args {
     input_audio_device: Option<String>,
 }
 
-pub fn main() {
+pub fn main(is_mobile: bool) {
     klog!("spectrumapp::main");
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -1482,6 +1483,7 @@ pub fn main() {
     let params = MyParams {
         #[cfg(not(target_arch = "wasm32"))]
         audio_device: args.input_audio_device,
+        is_mobile,
     };
     framework::run::<MyParams, Example>("sbsdft", params);
 }
@@ -1535,15 +1537,22 @@ impl SlidingRenderer {
         //     return;
         // }
         kwasm::debug_wasm_mem("init_app_ui");
+        let is_mobile = self.params.is_mobile;
+        let num_bins = if is_mobile {
+            80
+        } else {
+            500
+        };
 
         let config = SpectrumConfig {
             sample_rate: 24000,
-            num_bins: 800,
-            min_f: 8.0,
-            max_f: 10000.0,
+            num_bins,
+            min_f: 40.0,
+            max_f: 12000.0,
             wave_cycles_resolution: 16.0,
             resolution_low_f_shelf_hz: 50.0,
             subtraction_peaks: false,
+            collect_frequency: 5 * 60,
         };
 
         let mut impls = vec![];

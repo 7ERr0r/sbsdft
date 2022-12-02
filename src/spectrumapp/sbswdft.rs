@@ -1055,6 +1055,7 @@ pub struct SpectrumConfig {
     pub wave_cycles_resolution: f32,    // 45.0
     pub resolution_low_f_shelf_hz: f32, // 80.0
     pub subtraction_peaks: bool,
+    pub collect_frequency: usize,
 }
 
 #[test]
@@ -1242,7 +1243,7 @@ impl ChannelSWDFT {
             paused: false,
             should_colorize: true,
         };
-        s.set_collect_frequency(60 * 10);
+        s.set_collect_frequency(config.collect_frequency);
         //s.reinit_my_spectrum(&config);
         s
     }

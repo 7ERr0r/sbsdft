@@ -4,11 +4,11 @@
 <head>
   <meta charset="UTF-8" />
   <title>DFT</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 </head>
 <style>
   html {
-    background: black;
+    /*background: black;*/
   }
 
   body {
@@ -21,11 +21,24 @@
 
   #statustext {
     font-size: 20pt;
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+  #fullscreendiv {
+    background: #440000;
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: -10;
   }
 </style>
 
 <body>
   <span id="statustext"></span>
+  <div id="fullscreendiv"></div>
   <script type="module">
     const origin = location.origin;
     const pathname = location.pathname;
@@ -66,9 +79,10 @@
         statustext.innerText = "sleepAnimationFrame...";
         // must spin event loop to start workers
         await sleepAnimationFrame();
+        let isMobile = navigator.userAgentData.mobile;
         await sleepAnimationFrame();
         statustext.innerText = "start_spectrumapp...";
-        wasmbinds.start_spectrumapp();
+        wasmbinds.start_spectrumapp(isMobile);
         document.body.removeChild(statustext);
       }
     }
