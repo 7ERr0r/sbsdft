@@ -1474,13 +1474,20 @@ impl ChannelSWDFT {
                                 let b = b.to_f64();
 
                                 //const TAU: f64 = std::f64::consts::TAU;
+                                // Multiply times TAU with fixed point
                                 let phasea = -(s.bina.current_phase as f64)
                                     * FIXED_POINT_PHASE_MULTIPLIER_TAU;
                                 let phaseb = -(s.binb.current_phase as f64)
                                     * FIXED_POINT_PHASE_MULTIPLIER_TAU;
 
+                                // Rotation cancels the sliding window phase
+                                // so the last sample's phase is 0
                                 let a = a.rotate(phasea);
                                 let b = b.rotate(phaseb);
+
+                                // Neighbour Components, NC method
+                                // https://www.researchgate.net/publication/331834062_One_Technique_to_Enhance_the_Resolution_of_Discrete_Fourier_Transform
+                                
                                 // Just multiply NC components
                                 let mut magnitude = -(a.re * b.re + a.im * b.im);
                                 if magnitude < 0.0 {

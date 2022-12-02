@@ -2,6 +2,11 @@ Audio spectrum visualizer
 ===
 Visualizes audio frequencies with DFT (Discrete Fourier Transform).
 
+This app uses [Neighbour Components (NC) method](https://www.researchgate.net/publication/331834062_One_Technique_to_Enhance_the_Resolution_of_Discrete_Fourier_Transform).
+
+Underlaying algorithm is Sb-SDFT (Single bin - sliding Discrete Fourier Transform).
+
+Sliding DFT is calculated on the CPU using fixed-point integer math.
 
 
 Program compilation
@@ -27,8 +32,11 @@ Todo
 
 Running
 ----
-~~`cargo run --release -- -i stereo`~~
+Windows: `cargo run --release -- -i stereo`
 
+Linux: Make sure your default input device is 'Stereo Mix' - desktop audio monitor/loopback.
+
+Then: `cargo run --release`
 
 
 Name
