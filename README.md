@@ -40,7 +40,7 @@ Repo name is bad. Wanted to name it chromatone (similar to colorchord), but it's
 Wasm compilation
 ---
 - download https://github.com/WebAssembly/binaryen/releases/latest
-# - Windows: `wget https://github.com/WebAssembly/binaryen/releases/download/version_111/binaryen-version_111-x86_64-windows.tar.gz -O - | tar -zxvf - `
+[comment]: # (- Windows: `wget https://github.com/WebAssembly/binaryen/releases/download/version_111/binaryen-version_111-x86_64-windows.tar.gz -O - | tar -zxvf - `)
 - Linux: `wget https://github.com/WebAssembly/binaryen/releases/download/version_111/binaryen-version_111-x86_64-linux.tar.gz -O - | tar -zxvf -`
 - `mv binaryen-version_111 bin/binaryen`
 - `cargo install cargo-make`
