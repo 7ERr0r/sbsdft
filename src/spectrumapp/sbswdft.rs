@@ -23,17 +23,10 @@ use std::collections::VecDeque;
 use num_enum::IntoPrimitive;
 use num_enum::TryFromPrimitive;
 
-pub fn positive_mod(a: i32, b: i32) -> usize {
-    let x = a % b;
-    if x < 0 {
-        (x + b) as _
-    } else {
-        x as _
-    }
-}
+
 
 pub static QUANTIZER_LEVELS_POW: i64 = 15;
-pub static QUANTIZER_LEVELS: i64 = 32767;
+pub static QUANTIZER_LEVELS: i64 = (1 << QUANTIZER_LEVELS_POW) - 1;
 pub static QUANTIZER_LEVELS_F: f32 = QUANTIZER_LEVELS as f32;
 pub static QUANTIZER_LEVELS_F64: f64 = QUANTIZER_LEVELS as f64;
 pub static QUANTIZER_LEVELS_INV_F: f32 = 1.0 / (QUANTIZER_LEVELS as f32);
@@ -56,6 +49,7 @@ impl ComplexI64 {
         self.re * self.re + self.im * self.im
     }
 
+    #[allow(unused)]
     pub fn rotate(&self, angle: u32) -> Self {
         let re = self.re;
         let im = self.im;
@@ -453,11 +447,13 @@ impl DftBin {
             partial_sums_pos: 0,
         }
     }
+    #[allow(unused)]
     fn frequency(&self, sample_rate: f32) -> f32 {
         // inverse phase_shift_per_sample_to_fixed_point(freq / sample_rate)
 
         fixed_point_to_phase_shift_per_sample(self.pulsation) * sample_rate
     }
+    #[allow(unused)]
     pub fn frequency64(&self, sample_rate: f64) -> f64 {
         fixed_point_to_phase_shift_per_sample64(self.pulsation) * sample_rate
     }
@@ -572,6 +568,7 @@ impl DftBin {
         self.partial_sums_pos = self.partial_sums_pos % self.length;
     }
 
+    #[allow(unused)]
     pub fn magnitude_squared_all(&self) -> f64 {
         let mut val_real = (self.state_sum_real / (self.length as i64)) as f64;
         val_real *= QUANTIZER_LEVELS_INV_F64;
@@ -695,6 +692,7 @@ impl DftBin {
         (magnitude_squared, val)
     }
 
+    #[allow(unused)]
     pub fn magnitude_squared_from_to(&self, from: usize, to: usize) -> f64 {
         let sum = self.sum_ranged_from_to(from, to);
         let mut val_real = (sum.re / (self.length as i64)) as f64;
@@ -706,6 +704,7 @@ impl DftBin {
         val_real * val_real + val_imag * val_imag
     }
 
+    #[allow(unused)]
     pub fn magnitude_all(&self) -> f64 {
         self.magnitude_squared_all().sqrt()
     }
@@ -769,83 +768,6 @@ impl DftBin {
         }
         self.state_sum_real = sum_real;
         self.state_sum_imag = sum_imag;
-    }
-}
-
-pub struct MeasureBin {
-    pub bin: DftBin,
-    pub cumulative_phase_change: f64,
-    pub last_phase: f64,
-    pub sample_counter: i64,
-    pub first_measurement: bool,
-}
-
-impl MeasureBin {
-    pub fn new() -> Self {
-        Self {
-            bin: DftBin::new(),
-            cumulative_phase_change: 0.0,
-            last_phase: 0.0,
-            sample_counter: 0,
-            first_measurement: true,
-        }
-    }
-
-    pub fn reset_measurement(&mut self, _c: &SpectrumConfig) {
-        self.cumulative_phase_change = 0.0;
-        self.sample_counter = 0;
-        self.first_measurement = true;
-    }
-
-    pub fn auto_adjust(&mut self, c: &SpectrumConfig) {
-        let sample_rate = c.sample_rate as f32;
-        let old_freq = self.bin.frequency(sample_rate);
-
-        let phase_change_speed = self.cumulative_phase_change / (self.sample_counter as f64);
-        let phase_change_speed = phase_change_speed / (std::f64::consts::PI * 2.0);
-        let phase_change_speed = sample_rate * (phase_change_speed as f32);
-
-        println!("adjusting: {:.6} Hz", phase_change_speed);
-        println!("   period: {:.6} s", 1.0 / phase_change_speed);
-
-        let freq = old_freq + phase_change_speed as f32;
-
-        self.adjust(freq as f64, c);
-    }
-    pub fn adjust_freq_left(&mut self, left: bool, c: &SpectrumConfig) {
-        let delta = 0.0001;
-        let change = if left { -delta } else { delta };
-
-        let sample_rate = c.sample_rate as f64;
-        let old_freq = self.bin.frequency64(sample_rate);
-        let freq = old_freq + change;
-
-        println!("adjusting o: {:.6} Hz", old_freq);
-        println!("adjusting n: {:.6} Hz", freq);
-        println!(
-            "adjusting p: {}",
-            phase_shift_per_sample_to_fixed_point64(freq / sample_rate)
-        );
-        //println!("   period: {:.6} s", 1.0 / freq);
-
-        self.adjust(freq, c);
-    }
-
-    pub fn adjust(&mut self, freq: f64, c: &SpectrumConfig) {
-        let sample_rate = c.sample_rate as f64;
-        //let old_freq = self.bin.frequency(sample_rate);
-
-        let res = c.wave_cycles_resolution;
-        let shelf = c.resolution_low_f_shelf_hz;
-        self.bin.reinit_exact(
-            freq,
-            phase_shift_per_sample_to_fixed_point64(freq / sample_rate),
-            10 + res as usize * 4 + ((res * sample_rate as f32) / (shelf + freq as f32)) as usize,
-            true,
-        );
-        self.cumulative_phase_change = 0.0;
-        self.sample_counter = 0;
-        self.first_measurement = true;
     }
 }
 
@@ -927,6 +849,7 @@ impl ChannelRing {
         }
     }
 
+    #[allow(unused)]
     pub fn reset(&mut self) {
         for x in self.ring_samples.iter_mut() {
             *x = 0;
@@ -981,7 +904,7 @@ pub struct ChannelSWDFT {
     pub should_colorize: bool,
 
     pub spectrum_bins: SpectrumBins,
-    pub measure_bins: VecDeque<MeasureBin>,
+    //pub measure_bins: VecDeque<MeasureBin>,
 }
 
 #[derive(Copy, Clone, TryFromPrimitive, IntoPrimitive, PartialEq)]
@@ -1217,8 +1140,6 @@ impl ChannelSWDFT {
 
             rings.push(ChannelRing::new(ring_size));
         }
-
-        let measure_bins = VecDeque::new();
         let (sender, receiver) = std::sync::mpsc::channel();
 
         let mut s = Self {
@@ -1231,7 +1152,6 @@ impl ChannelSWDFT {
 
             //spectrum_bins: SpectrumBins::DFT(spectrum_bins),
             spectrum_bins: Self::make_spectrum_bins(1, config),
-            measure_bins,
             collect_every: 0,
             collect_frequency: 0,
             samples_to_collect_remaining: 1000,
@@ -1268,6 +1188,7 @@ impl ChannelSWDFT {
         self.samples_to_collect_remaining = self.collect_every;
     }
 
+    #[allow(unused)]
     pub fn reset(&mut self) {
         match &mut self.spectrum_bins {
             SpectrumBins::DFT(dft_bins) => {
@@ -1400,6 +1321,7 @@ impl ChannelSWDFT {
     }
 
     #[allow(non_snake_case)]
+    #[allow(unused)]
     pub fn makewin_exp(NN: i32) -> Vec<f64> {
         let mut window = Vec::new();
 
@@ -1748,7 +1670,8 @@ impl ChannelSWDFT {
         -0.5 * ((arg1.sin() - arg2.sin()) / (diff + 0.000000001))
     }
 
-    // full period is from 0 to 1
+    /// full period is from 0 to 1
+    #[allow(unused)]
     pub fn fast_cos(x: f32) -> f32 {
         let x = x % 1.0;
         let x = x + 1.0;
@@ -1758,7 +1681,8 @@ impl ChannelSWDFT {
         (fixedp_cos(x) as f32) * QUANTIZER_LEVELS_INV_F
     }
 
-    // full period is from 0 to 1
+    /// full period is from 0 to 1
+    #[allow(unused)]
     pub fn fast_sin(x: f32) -> f32 {
         let x = x % 1.0;
         let x = x + 1.0;
@@ -1848,6 +1772,8 @@ impl ChannelSWDFT {
             });
     }
 
+    /// Old algoritgm of peak subtraction
+    #[allow(unused)]
     pub fn subtract_sine2(
         max_index: i32,
         subtracted_pulse: u32,
@@ -1970,6 +1896,7 @@ impl ChannelSWDFT {
         peaks
     }
 
+    #[allow(unused)]
     pub fn colorize_spectrum_old(spectrum: &mut Vec<SSample>, peaks: &Vec<SPeak>) {
         let mut pindex = 0;
         let mut current = peaks.get(pindex);
@@ -2083,18 +2010,21 @@ impl ChannelSWDFT {
         }
     }
 
+    #[allow(unused)]
     pub fn decolorize_spectrum(spectrum: &mut Vec<SSample>) {
         for (_i, s) in spectrum.iter_mut().enumerate() {
             s.color = SColor::new(0xFFFFFFFF);
         }
     }
 
+    #[allow(unused)]
     pub fn colorize_spectrum_simple(spectrum: &mut Vec<SSample>) {
         for (_i, s) in spectrum.iter_mut().enumerate() {
             s.color = SColor::new(0xFFFFFFFF);
         }
     }
 
+    #[allow(unused)]
     pub fn colorize_spectrum_near(spectrum: &mut Vec<SSample>, peaks: &Vec<SPeak>) {
         let max_diff = 0.31;
 
@@ -2116,6 +2046,7 @@ impl ChannelSWDFT {
         }
     }
 
+    #[allow(unused)]
     pub fn weighted_color(center_octave: f32, max_diff: f32, peaks: &[SPeak]) -> u32 {
         let initc = 0.00001;
         let mut r = initc;
@@ -2197,6 +2128,9 @@ impl ChannelSWDFT {
         }
         input_2
     }
+
+    /// TODO
+    #[allow(unused)]
     pub fn multihalved_signal<F>(octaves: usize, main_input: &[f32], mut cb: F)
     where
         F: FnMut(usize, &[f32]),
@@ -2244,12 +2178,12 @@ impl ChannelSWDFT {
                 }
             }
         }
-        {
-            self.measure_bins.iter_mut().for_each(|probe| {
-                probe.bin.advance(l, &r.ring_samples, r.ring_offset);
-                probe.sample_counter += main_input.len() as i64;
-            });
-        }
+        // {
+        //     self.measure_bins.iter_mut().for_each(|probe| {
+        //         probe.bin.advance(l, &r.ring_samples, r.ring_offset);
+        //         probe.sample_counter += main_input.len() as i64;
+        //     });
+        // }
     }
 
     pub fn power_of_signal(samples: &[f32]) -> f64 {

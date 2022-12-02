@@ -234,6 +234,7 @@ async fn setup<P, E: Example<P>>(title: &str) -> Setup {
     }
 }
 
+#[allow(unused)]
 fn get_window_size_from_screen(window: &web_sys::Window) -> (i64, i64) {
     let screen = window.screen().unwrap();
     let document = window.document().unwrap();

@@ -46,6 +46,8 @@ impl<'a> RGBASub<'a> {
             + (p.x as usize - self.min.x as usize) * 4
     }
 }
+
+#[allow(unused)]
 pub struct KTexture {
     pub img: Option<KRGBAImage>,
     pub used_rect: KRect,
