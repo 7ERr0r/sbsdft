@@ -55,8 +55,8 @@ pub fn wasm_rayon_started() -> bool {
     unsafe { WASM_RAYON_STARTED }
 }
 
-pub fn init_wasm_rayon_legacy() {
-    let wasm_rayon = KRayonPoolBuilder::new(8);
+pub fn init_wasm_rayon_legacy(rayon_threads: u32) {
+    let wasm_rayon = KRayonPoolBuilder::new(rayon_threads as usize);
     KRayonPoolBuilder::spawn(&wasm_rayon);
 
     unsafe {
@@ -82,8 +82,8 @@ pub fn init_wasm_rayon_regular_spawn() {
         .unwrap();
 }
 
-pub fn init_wasm_rayon() {
-    init_wasm_rayon_legacy();
+pub fn init_wasm_rayon(rayon_threads: u32) {
+    init_wasm_rayon_legacy(rayon_threads);
 
     // wasm_rayon.borrow_mut().build();
     // let timeout_fn = move || {

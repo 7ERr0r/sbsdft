@@ -45,7 +45,7 @@ pub fn main() {
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
-pub fn start_dft(wasm_bindgen_path: &str) {
+pub fn start_dft(wasm_bindgen_path: &str, rayon_threads: i32) {
     use crate::spectrumapp::appstate::*;
     set_app_state(AppState::Initializing);
 
@@ -79,7 +79,8 @@ pub fn start_dft(wasm_bindgen_path: &str) {
     }
     set_app_state(AppState::InitRayon);
     use crate::spectrumapp::wasm_rayon::init_wasm_rayon;
-    init_wasm_rayon();
+
+    init_wasm_rayon(rayon_threads.max(2) as u32);
 
     crate::spectrumapp::kwasm::debug_wasm_mem("init_wasm_rayon");
 

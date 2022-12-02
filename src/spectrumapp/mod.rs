@@ -1539,7 +1539,7 @@ impl SlidingRenderer {
         kwasm::debug_wasm_mem("init_app_ui");
         let is_mobile = self.params.is_mobile;
         let num_bins = if is_mobile {
-            80
+            50
         } else {
             500
         };

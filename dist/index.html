@@ -20,11 +20,12 @@
   }
 
   #statustext {
-    font-size: 20pt;
+    font-size: 18pt;
     position: absolute;
     top: 0;
     left: 0;
   }
+
   #fullscreendiv {
     background: #440000;
     width: 100%;
@@ -73,13 +74,16 @@
         // workers must load the SAME cached file
         // so the threads will start faster
         statustext.innerText = "start_dft...";
-        wasmbinds.start_dft(modpath);
-        
+        wasmbinds.start_dft(modpath, navigator.hardwareConcurrency);
+
 
         statustext.innerText = "sleepAnimationFrame...";
         // must spin event loop to start workers
         await sleepAnimationFrame();
-        let isMobile = navigator.userAgentData.mobile;
+        let isMobile = false;
+        if (navigator.userAgentData) {
+          isMobile = navigator.userAgentData.mobile;
+        }
         await sleepAnimationFrame();
         statustext.innerText = "start_spectrumapp...";
         wasmbinds.start_spectrumapp(isMobile);
