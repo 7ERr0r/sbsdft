@@ -1,5 +1,7 @@
 Audio spectrum visualizer
 ===
+Demo: [dzwi.ga/dft/](https://dzwi.ga/dft/)
+
 Visualizes audio frequencies with DFT (Discrete Fourier Transform).
 
 This app uses [Neighbour Components (NC) method](https://www.researchgate.net/publication/331834062_One_Technique_to_Enhance_the_Resolution_of_Discrete_Fourier_Transform).
