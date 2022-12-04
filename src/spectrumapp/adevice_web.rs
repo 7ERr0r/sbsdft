@@ -8,7 +8,6 @@ use crate::klog;
 use web_sys::AudioWorkletNode;
 use web_sys::AudioWorkletNodeOptions;
 use web_sys::MediaStreamTrack;
-use web_sys::ScriptProcessorNode;
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -17,11 +16,12 @@ use wasm_bindgen_futures::JsFuture;
 use web_sys::AudioBuffer;
 use web_sys::AudioBufferSourceNode;
 use web_sys::AudioContext;
-use web_sys::AudioProcessingEvent;
 use web_sys::MediaStream;
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::sync::Weak;
 
@@ -46,14 +46,11 @@ pub fn global_audio_context() -> Result<AudioContext, JsValue> {
 pub struct AdeviceWeb {
     me: Weak<AdeviceWeb>,
     pcm_sender: Box<dyn PCMSender>,
-    //pub r_channel: SlidingImpl,
     pub source: Option<AudioBufferSourceNode>,
     pub reference_audio_buffer: Option<AudioBuffer>,
     pub playing_ref: bool,
     pub rolling_gain: f64,
     pub current_power: f64,
-    //tx: Option<Sender<Vec<f32>>>,
-    //uint8buf: js_sys::Uint8Array,
 }
 
 impl AdeviceWeb {
@@ -70,32 +67,11 @@ impl AdeviceWeb {
         adevice
     }
 
-    // pub fn move_probes(&mut self, left: bool) {
-    //     match &mut self.l_channel {
-    //         SlidingImpl::DFT(dft) => dft.move_probes(left),
-    //         SlidingImpl::Correlator(corr) => corr.move_probes(left),
-    //     };
-    // }
-
     pub fn start(&self) -> Result<(), JsValue> {
         set_app_state(AppState::StartAudioCapture);
         let fut = Self::start_capture_try(self.me.upgrade().unwrap());
 
-        klog!(
-            "wasm_bindgen_futures::spawn_local @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-        );
         wasm_bindgen_futures::spawn_local(fut);
-
-        //use crossbeam_channel::bounded;
-        //let (tx, rx) = bounded::<Vec<f32>>(1024);
-        //let mut channels: Option<Box<dyn PCMReceiver>> = None;
-        //let mut tx = Some(tx);
-        //std::mem::swap(&mut channels, &mut self.sender);
-        //std::mem::swap(&mut self.tx, &mut tx);
-
-        // super::kwasm::spawn_once(move || {
-        //     Self::receiver_task(rx, channels.unwrap());
-        // });
 
         Ok(())
     }
@@ -104,6 +80,7 @@ impl AdeviceWeb {
         let result = Self::start_capture(self).await;
         match result {
             Err(err) => {
+                set_app_state(AppState::GetUserMediaFailed);
                 klog!("start_capture err: {:?}", err);
             }
             Ok(ok) => {
@@ -115,7 +92,7 @@ impl AdeviceWeb {
     pub async fn start_capture(self: Arc<Self>) -> Result<JsValue, JsValue> {
         set_app_state(AppState::StartAudioCaptureAsync);
 
-        klog!("getting audio devices @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+        klog!("getting audio devices");
         let window = web_sys::window().unwrap();
 
         let nav = window.navigator();
@@ -125,14 +102,6 @@ impl AdeviceWeb {
             return Err(JsValue::from_str("mediaDevices undefined"));
         }
 
-        /*
-        match devices {
-            Ok(devices) => devices,
-            Err(err) =>{
-                console_warn!("no mediaDevices (no https?): {:?}", err);
-                return Ok(())
-            },
-        }?;*/
         let mut constraints = web_sys::MediaStreamConstraints::new();
 
         let mut c = web_sys::MediaTrackConstraints::new();
@@ -142,150 +111,19 @@ impl AdeviceWeb {
         constraints.audio(&c);
         constraints.video(&JsValue::FALSE);
 
-        //constraints.picture(false);
-        //let success_promise = devices.get_user_media_with_constraints(&constraints)?;
-
         let success_promise = devices.get_user_media_with_constraints(&constraints)?;
-
-        // let f = Rc::new(RefCell::new(None));
-        // let ff = f.clone();
-
-        //let weak = self.me.clone();
-        // let success_cb = move |maybe_stream: JsValue| {
-        //     drop(f.borrow().as_ref().unwrap());
-        // };
-
-        // *ff.borrow_mut() = Some(Closure::wrap(
-        //     Box::new(success_cb) as Box<dyn FnMut(JsValue)>
-        // ));
 
         set_app_state(AppState::WaitingForUserAudio);
 
         let maybe_stream = JsFuture::from(success_promise).await?;
 
         let _result = self.on_media_stream_acquired(maybe_stream).await?;
-        // let _unused = success_promise
-        //     .then(
-        //         Self::oneshot_callback(move |maybe_stream| {
-        //             if let Some(strong) = weak.upgrade() {
-        //                 match strong.on_media_stream_acquired(maybe_stream) {
-        //                     Ok(x) => x,
-        //                     Err(err) => {
-        //                         klog!("stream in callback is not a MediaStream: {:?}", err);
-        //                     }
-        //                 }
-        //             }
-        //             Ok(())
-        //         })
-        //         .borrow()
-        //         .as_ref()
-        //         .unwrap(),
-        //     )
-        //     .catch(
-        //         Self::oneshot_callback(move |err| {
-        //             klog!("start_capture error: {:?}", err);
-        //             set_app_state(AppState::GetUserMediaFailed);
-
-        //             Ok(())
-        //         })
-        //         .borrow()
-        //         .as_ref()
-        //         .unwrap(),
-        //     );
 
         Ok(JsValue::null())
     }
 
-    // pub fn toggle_reference_player(&mut self) -> Result<(), JsValue> {
-    //     let ctx = global_audio_context()?;
-
-    //     if self.source.is_none() {
-    //         let source = ctx.create_buffer_source()?;
-    //         source.set_buffer(self.reference_audio_buffer.as_ref());
-    //         source.connect_with_audio_node(&ctx.destination())?;
-    //         self.source = Some(source);
-    //     }
-
-    //     match &self.source {
-    //         None => {}
-    //         Some(source) => {
-    //             self.playing_ref = !self.playing_ref;
-    //             if self.playing_ref {
-    //                 klog!("starting ref player");
-    //                 source.set_loop(true);
-    //                 source.start_with_when(0.0)?;
-    //             } else {
-    //                 klog!("stopping ref player");
-    //                 source.stop_with_when(0.0)?;
-    //                 self.source = None;
-    //             }
-    //         }
-    //     };
-    //     Ok(())
-    // }
-
-    /*
-    pub fn fetch_reference_signal(&mut self) {
-        let weak = self.grapher.clone();
-        let success = move |audio_buffer: web_sys::AudioBuffer| {
-            let samples_f32 = audio_buffer.get_channel_data(0).unwrap();
-
-            let samples_i16: Vec<i16> = samples_f32.iter().map(|x| (x * 32767.0) as i16).collect();
-
-            console_log!("reference buf len: {:?}", samples_i16.len());
-
-            weak.upgrade().map(|strong| {
-                let mut corr = strong.borrow_mut();
-                corr.reference_audio_buffer = Some(audio_buffer);
-                corr.l_channel.reset();
-                //corr.l_channel.reference = samples_i16;
-
-                corr.l_channel.reference = load_ref_noise();
-            });
-        };
-
-        let future = SlidingGrapher::fetch_decode_audio(Box::new(success));
-        let _promise = future_to_promise(future);
-    }*/
-
-    // pub async fn fetch_decode_audio(
-    //     success: Box<dyn FnMut(web_sys::AudioBuffer)>,
-    // ) -> Result<JsValue, JsValue> {
-    //     let audio_file = crate::request_raw_bytes("noise.wav").await?;
-    //     let _promise = SlidingGrapher::decode_audio_data(&audio_file, success)?;
-    //     Ok(wasm_bindgen::JsValue::null())
-    // }
-
-    // pub fn decode_audio_data(
-    //     audio_file: &[u8],
-    //     mut success: Box<dyn FnMut(web_sys::AudioBuffer)>,
-    // ) -> Result<Promise, JsValue> {
-    //     let ctx = global_audio_context()?;
-
-    //     let cb_ondecode_success = move |maybe_audiobuffer: JsValue| -> Result<(), JsValue> {
-    //         let audiobuffer: web_sys::AudioBuffer = maybe_audiobuffer.dyn_into()?;
-    //         success(audiobuffer);
-    //         Ok(())
-    //     };
-    //     let cb = Closure::wrap(
-    //         Box::new(cb_ondecode_success) as Box<dyn FnMut(JsValue) -> Result<(), JsValue>>
-    //     );
-    //     let content_js_array =
-    //         js_sys::Uint8Array::new(unsafe { &js_sys::Uint8Array::view(audio_file) });
-
-    //     let promise = ctx.decode_audio_data_with_success_callback(
-    //         &content_js_array.buffer(),
-    //         cb.as_ref().unchecked_ref(),
-    //     )?;
-    //     cb.forget();
-    //     Ok(promise)
-    // }
-
     pub async fn on_media_stream_acquired(&self, maybe_stream: JsValue) -> Result<(), JsValue> {
         set_app_state(AppState::MediaStreamTrack);
-        //let media_stream: MediaStream = maybe_stream.dyn_into();
-
-        //self.fetch_reference_signal();
 
         let media_stream: MediaStream = maybe_stream.dyn_into()?;
         let tracks_arr = media_stream.get_audio_tracks();
@@ -298,41 +136,9 @@ impl AdeviceWeb {
 
         let promise = media_stream_track.apply_constraints_with_constraints(&c)?;
 
-        let weak = self.me.clone();
-
         let _what = JsFuture::from(promise).await?;
-        
+
         self.on_media_stream_acquired_prepared(media_stream).await?;
-
-        // let _unused = promise
-        //     .then(
-        //         Self::oneshot_callback(move |_| {
-        //             let media_streamc = media_stream.clone();
-        //             set_app_state(AppState::Playing);
-
-        //             if let Some(strong) = weak.upgrade() {
-        //                 match strong.on_media_stream_acquired_prepared(media_streamc) {
-        //                     Ok(x) => x,
-        //                     Err(err) => {
-        //                         klog!("on_media_stream_acquired_prepared: {:?}", err);
-        //                     }
-        //                 }
-        //             }
-        //             Ok(())
-        //         })
-        //         .borrow()
-        //         .as_ref()
-        //         .unwrap(),
-        //     )
-        //     .catch(
-        //         Self::oneshot_callback(move |err| {
-        //             klog!("on_media_stream_acquired error: {:?}", err);
-        //             Ok(())
-        //         })
-        //         .borrow()
-        //         .as_ref()
-        //         .unwrap(),
-        //     );
 
         Ok(())
     }
@@ -358,31 +164,6 @@ impl AdeviceWeb {
         rc
     }
 
-    pub fn create_legacy_processor_node(
-        &self,
-        ctx: &AudioContext,
-    ) -> Result<ScriptProcessorNode, JsValue> {
-        let processor = ctx.create_script_processor_with_buffer_size_and_number_of_input_channels_and_number_of_output_channels(1024/4, 1, 1)?;
-
-        Ok(processor)
-    }
-
-    // #[allow(unused)]
-    // pub fn create_worklet_processor_node(
-    //     &self,
-    //     ctx: &AudioContext,
-    // ) -> Result<ScriptProcessorNode, JsValue> {
-    //     let processor = ctx.create_script_processor_with_buffer_size_and_number_of_input_channels_and_number_of_output_channels(1024/4, 1, 1)?;
-
-    //     let worklet = ctx.audio_worklet()?;
-    //     let mut options = WorkletOptions::new();
-
-    //     options.credentials(web_sys::RequestCredentials::SameOrigin);
-    //     let _module_promise = worklet.add_module_with_options("processor.js", &options)?;
-
-    //     Ok(processor)
-    // }
-
     pub fn create_worklet_processor_node(
         &self,
         ctx: &AudioContext,
@@ -403,13 +184,6 @@ impl AdeviceWeb {
         )
     }
 
-    // let params: &'static Params = Box::leak(Box::new(Params::default()));
-    // let mut osc = Oscillator::new(&params);
-    // let ctx = wasm_audio(Box::new(move |buf| osc.process(buf)))
-    //     .await
-    //     .unwrap();
-    // create_gui(params, ctx);
-
     pub async fn prepare_wasm_audio(ctx: &AudioContext) -> Result<(), JsValue> {
         polyfill_nop();
         let mod_url = &dependent_module!("kworklet.js")?;
@@ -423,11 +197,13 @@ impl AdeviceWeb {
     ) -> Result<(), JsValue> {
         let me = self.me.upgrade().unwrap().clone();
         set_app_state(AppState::PreparingWasmWorker);
-        let process_fn = Box::new(move |samples: &mut [f32]| -> bool {
-            set_app_state(AppState::Playing);
-            //let in_buf = processingevent.input_buffer().unwrap();
 
-            //let buf = in_buf.get_channel_data(0).unwrap();
+        let atomic_started = Arc::new(AtomicBool::new(false));
+
+        let process_fn = Box::new(move |samples: &mut [f32]| -> bool {
+            if !atomic_started.swap(true, Ordering::Relaxed) {
+                set_app_state(AppState::Playing);
+            }
 
             me.pcm_sender.send_pcm(1, samples);
             true
@@ -441,71 +217,10 @@ impl AdeviceWeb {
         source.connect_with_audio_node(&processor)?;
 
         let destination = ctx.create_media_stream_destination()?;
-        //let destination = ctx.destination()?;
 
         processor.connect_with_audio_node(&destination.dyn_into()?)?;
 
-        /*
-        let mut correlator = Correlator {
-            uint8buf: js_sys::Uint8Array::new_with_length(1024),
-        };
-        */
-        // let weak = self.me.clone();
-        // let cb_onaudioprocess = move |maybe_processingevent: JsValue| -> Result<(), JsValue> {
-        //     weak.upgrade().map_or(Ok(()), |strong| {
-        //         if crate::spectrumapp::panicked() {
-        //             return Ok(());
-        //         }
-        //         strong.onaudioprocess(maybe_processingevent)
-        //     })
-        // };
-
-        // let cb = Closure::wrap(
-        //     Box::new(cb_onaudioprocess) as Box<dyn FnMut(JsValue) -> Result<(), JsValue>>
-        // );
-        //processor.set_onaudioprocess(Some(cb.as_ref().unchecked_ref()));
-        //cb.forget();
         klog!("we got microphone media device");
-
-        Ok(())
-    }
-
-    pub fn onaudioprocess(&self, maybe_processingevent: JsValue) -> Result<(), JsValue> {
-        let processingevent: AudioProcessingEvent = maybe_processingevent.dyn_into()?;
-
-        let in_buf = processingevent.input_buffer()?;
-        //console_log!("{:?}", in_buf);
-        //let mut buf = Vec::with_capacity(1024);
-
-        // SAFETY: init below
-        //unsafe {
-        //    buf.set_len(1024);
-        //}
-        //in_buf.copy_from_channel(buf.as_mut_slice(), 1)?;
-
-        let buf = in_buf.get_channel_data(0)?;
-        //console_log!("len: {}", in_buf.length());
-
-        //console_log!("samples: {:?}", buf);
-
-        // match &mut self.l_channel {
-        //     SlidingImpl::DFT(dft) => dft.on_input(&buf),
-        //     SlidingImpl::Correlator(corr) => corr.on_input(&buf),
-        // };
-
-        //self.tx.as_ref().map(|tx| tx.try_send(buf));
-        self.pcm_sender.send_pcm(1, &buf);
-
-        // let mut bufs = Vec::new();
-        // bufs.push(buf);
-        // match &self.channels {
-        //     Some(channels) => {
-        //         channels.on_receive(&bufs);
-        //     }
-        //     None => {
-
-        //     }
-        // }
 
         Ok(())
     }
@@ -528,45 +243,6 @@ impl WasmAudioProcessor {
         *Box::from_raw(val as *mut _)
     }
 }
-
-// // Use wasm_audio if you have a single wasm audio processor in your application
-// // whose samples should be played directly. Ideally, call wasm_audio based on
-// // user interaction. Otherwise, resume the context on user interaction, so
-// // playback starts reliably on all browsers.
-// pub async fn wasm_audio(
-//     process: Box<dyn FnMut(&mut [f32]) -> bool>,
-// ) -> Result<AudioContext, JsValue> {
-//     let ctx = AudioContext::new()?;
-//     prepare_wasm_audio(&ctx).await?;
-//     let node = wasm_audio_node(&ctx, process)?;
-//     node.connect_with_audio_node(&ctx.destination())?;
-//     Ok(ctx)
-// }
-
-// // wasm_audio_node creates an AudioWorkletNode running a wasm audio processor.
-// // Remember to call prepare_wasm_audio once on your context before calling
-// // this function.
-// pub fn wasm_audio_node(
-//     ctx: &AudioContext,
-//     process: Box<dyn FnMut(&mut [f32]) -> bool>,
-// ) -> Result<AudioWorkletNode, JsValue> {
-//     AudioWorkletNode::new_with_options(
-//         &ctx,
-//         "WasmProcessor",
-//         &AudioWorkletNodeOptions::new().processor_options(Some(&js_sys::Array::of3(
-//             &wasm_bindgen::module(),
-//             &wasm_bindgen::memory(),
-//             &WasmAudioProcessor(process).pack().into(),
-//         ))),
-//     )
-// }
-
-// pub async fn prepare_wasm_audio(ctx: &AudioContext) -> Result<(), JsValue> {
-//     nop();
-//     let mod_url = dependent_module!("processor.js")?;
-//     JsFuture::from(ctx.audio_worklet()?.add_module(&mod_url)?).await?;
-//     Ok(())
-// }
 
 // TextEncoder and TextDecoder are not available in Audio Worklets, but there
 // is a dirty workaround: Import polyfill.js to install stub implementations

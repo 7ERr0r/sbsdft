@@ -16,8 +16,6 @@ extern "C" {
     static IMPORT_META: ImportMeta;
 }
 
-
-
 #[allow(unused)]
 pub fn on_the_fly(code: &str) -> Result<String, JsValue> {
     // Generate the import of the bindgen ES module, assuming `--target web`:

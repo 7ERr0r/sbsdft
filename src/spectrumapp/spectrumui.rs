@@ -503,8 +503,6 @@ impl SpectrumUI {
             //             dft.measure_bins.push_back(bin);
             //         }
             //     }
-            
-        
         }
     }
 
@@ -800,8 +798,7 @@ impl SpectrumUI {
             fr.draw_string(
                 format!(
                     "[Z/X]            motion blur: {} Hz (every {} samples)",
-                    snapshot.collect_frequency,
-                    snapshot.collect_every,
+                    snapshot.collect_frequency, snapshot.collect_every,
                 )
                 .as_str(),
                 2.0,
@@ -1288,7 +1285,6 @@ impl SpectrumUI {
                         break;
                     }
                 }
-
             }
 
             let mut wanted = 20;

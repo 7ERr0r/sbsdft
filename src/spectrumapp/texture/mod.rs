@@ -1,8 +1,6 @@
 use std::collections::VecDeque;
 use std::fmt;
 
-
-
 /// Based on golang's RGBAImage
 pub struct KRGBAImage {
     pub dx: u32,
@@ -192,7 +190,6 @@ impl Default for FRect {
 pub struct RectAllocator {
     squares_by_size: [VecDeque<KRect>; 16],
 }
-
 
 #[allow(unused)]
 fn power2_of(mut x: u32) -> u32 {

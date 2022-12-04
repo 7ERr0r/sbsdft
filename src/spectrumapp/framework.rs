@@ -234,7 +234,6 @@ async fn setup<P, E: Example<P>>(title: &str) -> Setup {
     }
 }
 
-
 #[cfg(target_arch = "wasm32")]
 #[allow(unused)]
 fn get_window_size_from_screen(window: &web_sys::Window) -> (i64, i64) {
@@ -256,7 +255,6 @@ fn get_window_size_from_screen(window: &web_sys::Window) -> (i64, i64) {
     let dy = dy as i64;
     (dx, dy)
 }
-
 
 #[cfg(target_arch = "wasm32")]
 fn get_window_size_from_div_element(window: &web_sys::Window) -> (i64, i64) {

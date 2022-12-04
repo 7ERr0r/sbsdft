@@ -23,8 +23,6 @@ use std::collections::VecDeque;
 use num_enum::IntoPrimitive;
 use num_enum::TryFromPrimitive;
 
-
-
 pub static QUANTIZER_LEVELS_POW: i64 = 15;
 pub static QUANTIZER_LEVELS: i64 = (1 << QUANTIZER_LEVELS_POW) - 1;
 pub static QUANTIZER_LEVELS_F: f32 = QUANTIZER_LEVELS as f32;
@@ -1487,7 +1485,7 @@ impl ChannelSWDFT {
 
                                 // Neighbour Components, NC method
                                 // https://www.researchgate.net/publication/331834062_One_Technique_to_Enhance_the_Resolution_of_Discrete_Fourier_Transform
-                                
+
                                 // Just multiply NC components
                                 let mut magnitude = -(a.re * b.re + a.im * b.im);
                                 if magnitude < 0.0 {

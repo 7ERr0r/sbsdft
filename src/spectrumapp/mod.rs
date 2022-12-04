@@ -27,7 +27,6 @@ pub mod sbswdft;
 pub mod spectrumui;
 pub mod texture;
 
-
 #[cfg(target_arch = "wasm32")]
 pub mod pool;
 
@@ -37,10 +36,8 @@ pub mod tracingalloc;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm_rayon;
 
-
 #[cfg(target_arch = "wasm32")]
 pub mod dependent_module;
-
 
 pub mod appthread;
 
@@ -1544,11 +1541,7 @@ impl SlidingRenderer {
         // }
         kwasm::debug_wasm_mem("init_app_ui");
         let is_mobile = self.params.is_mobile;
-        let num_bins = if is_mobile {
-            50
-        } else {
-            500
-        };
+        let num_bins = if is_mobile { 50 } else { 500 };
 
         let config = SpectrumConfig {
             sample_rate: 24000,

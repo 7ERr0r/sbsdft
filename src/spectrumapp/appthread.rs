@@ -121,11 +121,19 @@ impl ProcessingApp {
     }
 
     pub fn new_sender(&self) -> SlidingAppSender {
-        
-        SlidingAppSender::new(self.main_pcm_tx.clone(), self.sliding_channels.len(), self.reuse_buffers_rx.clone())
+        SlidingAppSender::new(
+            self.main_pcm_tx.clone(),
+            self.sliding_channels.len(),
+            self.reuse_buffers_rx.clone(),
+        )
     }
 
-    pub fn main_thread(&self, priority_rx: Receiver<AppMsg>, rx: Receiver<AppMsg>, reuse_tx: Sender<Vec<f32>>) {
+    pub fn main_thread(
+        &self,
+        priority_rx: Receiver<AppMsg>,
+        rx: Receiver<AppMsg>,
+        reuse_tx: Sender<Vec<f32>>,
+    ) {
         loop {
             if !self.main_loop(&priority_rx, &rx, &reuse_tx) {
                 break;
@@ -133,7 +141,12 @@ impl ProcessingApp {
         }
     }
 
-    pub fn main_loop(&self, priority_rx: &Receiver<AppMsg>, rx: &Receiver<AppMsg>, reuse_tx: &Sender<Vec<f32>>) -> bool {
+    pub fn main_loop(
+        &self,
+        priority_rx: &Receiver<AppMsg>,
+        rx: &Receiver<AppMsg>,
+        reuse_tx: &Sender<Vec<f32>>,
+    ) -> bool {
         let mut msg = priority_rx.try_recv().ok();
         if msg.is_none() {
             msg = rx.recv().ok();
