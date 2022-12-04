@@ -6,8 +6,13 @@ pub enum AppState {
     InitRayon,
     AwaitingRayonThreads,
     AwaitingLastWorker,
+    RayonBuildDone,
+    StartAudioCapture,
+    StartAudioCaptureAsync,
     WaitingForUserAudio,
+    PreparingWasmWorker,
     MediaStreamTrack,
+
     GetUserMediaFailed,
     Playing,
 }

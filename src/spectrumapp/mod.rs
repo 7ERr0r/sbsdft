@@ -27,6 +27,7 @@ pub mod sbswdft;
 pub mod spectrumui;
 pub mod texture;
 
+
 #[cfg(target_arch = "wasm32")]
 pub mod pool;
 
@@ -35,6 +36,11 @@ pub mod kwasm;
 pub mod tracingalloc;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm_rayon;
+
+
+#[cfg(target_arch = "wasm32")]
+pub mod dependent_module;
+
 
 pub mod appthread;
 
@@ -1636,7 +1642,7 @@ impl SlidingRenderer {
         self.audio_io_bridge.as_mut().map(|v| v.start());
 
         #[cfg(target_arch = "wasm32")]
-        self.audio_io_bridge.as_mut().map(|v| v.start().unwrap());
+        self.audio_io_bridge.as_mut().map(|v| v.start());
     }
 
     fn notify_render_tick(&mut self) {

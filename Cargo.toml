@@ -143,7 +143,6 @@ rev = "e5ddb94be0221b0f53a8f43adfb15458daebfd7c"
 
 [target.'cfg(target_arch="wasm32")'.dependencies]
 wee_alloc = "0.4.5"
-wasm-bindgen-rayon = "1.0.3"
 spmc = "0.3.0"
 console_log = "0.2.0"
 #dlmalloc = { version = "*", features = ["global"] }
@@ -167,6 +166,8 @@ web-sys = { version = "0.3.60", features = [
     "DedicatedWorkerGlobalScope",
     "Url",
     "AudioWorklet",
+    "AudioWorkletNode",
+    "AudioWorkletNodeOptions",
     "WorkletOptions",
     "RequestCredentials",
     "Worklet",

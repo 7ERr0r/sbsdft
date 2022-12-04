@@ -8,21 +8,24 @@ pub trait PCMSender: Send + Sync {
     fn num_channels(&self) -> usize;
     //fn on_receive(&self, samples: &[Vec<f32>]);
 
-    fn send_pcm(&self, channel: i32, samples: Vec<f32>);
+    fn send_pcm(&self, channel: i32, samples: &[f32]);
 }
-
-
 
 #[derive(Clone)]
 pub struct SlidingAppSender {
     main_pcm_tx: Sender<AppMsg>,
+
+    /// We don't want to allocate on Audio worklet thread
+    //reuse_buffers_tx: Sender<Vec<f32>>,
+    reuse_buffers_rx: Receiver<Vec<f32>>,
     channel_num: usize,
 }
 impl SlidingAppSender {
-    pub fn new(tx: Sender<AppMsg>, channel_num: usize) -> Self {
+    pub fn new(tx: Sender<AppMsg>, channel_num: usize, reuse_rx: Receiver<Vec<f32>>) -> Self {
         Self {
             channel_num,
             main_pcm_tx: tx,
+            reuse_buffers_rx: reuse_rx,
             //weak_sliding_channels: channels,
         }
     }
@@ -33,10 +36,22 @@ impl PCMSender for SlidingAppSender {
         self.channel_num
     }
 
-    fn send_pcm(&self, num_channels: i32, samples: Vec<f32>) {
+    fn send_pcm(&self, num_channels: i32, samples: &[f32]) {
+        let optbuf = self.reuse_buffers_rx.try_recv().ok();
+        let buf: Vec<f32>;
+
+        if let Some(mut sbuf) = optbuf {
+            sbuf.clear();
+            sbuf.reserve(samples.len());
+            sbuf.extend_from_slice(samples);
+            buf = sbuf;
+        } else {
+            buf = samples.to_vec();
+        }
+
         let _ = self
             .main_pcm_tx
-            .try_send(AppMsg::PcmAudio(num_channels, samples));
+            .try_send(AppMsg::PcmAudio(num_channels, buf));
     }
 
     // fn on_receive(&self, channels_samples: &[Vec<f32>]) {
@@ -67,11 +82,17 @@ pub struct ProcessingApp {
     bufs: Mutex<Vec<Vec<f32>>>,
     pub main_pcm_tx: Sender<AppMsg>,
     pub main_priority_tx: Sender<AppMsg>,
+
+    /// We don't want to allocate on Audio worklet thread
+    //pub reuse_buffers_tx: Sender<Vec<f32>>,
+    pub reuse_buffers_rx: Receiver<Vec<f32>>,
+    //pub reuse_buffers_tx: Sender<Vec<f32>>,
 }
 
 impl ProcessingApp {
     pub fn new(sliding_channels: Vec<Arc<Mutex<SlidingImpl>>>) -> Arc<Self> {
         let (tx, rx) = bounded(1024);
+        let (reuse_tx, reuse_rx) = bounded(512);
         let (priority_tx, priority_rx) = bounded(8);
 
         let channels = sliding_channels.len();
@@ -87,29 +108,32 @@ impl ProcessingApp {
             bufs: Mutex::new(bufs),
             main_pcm_tx: tx,
             main_priority_tx: priority_tx,
+            reuse_buffers_rx: reuse_rx,
+            //reuse_buffers_tx: reuse_tx,
         });
 
         let appp = app.clone();
         super::kwasm::spawn_once("processingApp.main_thread", move || {
-            appp.main_thread(priority_rx, rx);
+            appp.main_thread(priority_rx, rx, reuse_tx);
         });
 
         app
     }
 
     pub fn new_sender(&self) -> SlidingAppSender {
-        SlidingAppSender::new(self.main_pcm_tx.clone(), self.sliding_channels.len())
+        
+        SlidingAppSender::new(self.main_pcm_tx.clone(), self.sliding_channels.len(), self.reuse_buffers_rx.clone())
     }
 
-    pub fn main_thread(&self, priority_rx: Receiver<AppMsg>, rx: Receiver<AppMsg>) {
+    pub fn main_thread(&self, priority_rx: Receiver<AppMsg>, rx: Receiver<AppMsg>, reuse_tx: Sender<Vec<f32>>) {
         loop {
-            if !self.main_loop(&priority_rx, &rx) {
+            if !self.main_loop(&priority_rx, &rx, &reuse_tx) {
                 break;
             }
         }
     }
 
-    pub fn main_loop(&self, priority_rx: &Receiver<AppMsg>, rx: &Receiver<AppMsg>) -> bool {
+    pub fn main_loop(&self, priority_rx: &Receiver<AppMsg>, rx: &Receiver<AppMsg>, reuse_tx: &Sender<Vec<f32>>) -> bool {
         let mut msg = priority_rx.try_recv().ok();
         if msg.is_none() {
             msg = rx.recv().ok();
@@ -127,6 +151,9 @@ impl ProcessingApp {
                     ch_num as usize
                 };
                 self.on_receive(&mut bufs, in_channels, &samples);
+
+                // Reusing Vec<f32>
+                let _ = reuse_tx.try_send(samples);
             }
         }
 

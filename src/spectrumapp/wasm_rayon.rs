@@ -211,6 +211,7 @@ impl KRayonPoolBuilder {
         let selfclone = self.me.upgrade().unwrap();
         super::pool::execute_unpooled(&last_idle_worker, move || {
             klog!("executing rayon::build on worker");
+            set_app_state(AppState::RayonBuildDone);
             selfclone.build();
         })
         .unwrap();
