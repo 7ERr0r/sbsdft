@@ -1,6 +1,5 @@
 use std::sync::{Arc, Mutex, Weak};
 
-use cpal::Sample;
 use crossbeam_channel::{bounded, Receiver, Sender};
 
 use super::sbswdft::SlidingImpl;
@@ -10,6 +9,8 @@ pub trait PCMSender: Send + Sync {
     //fn on_receive(&self, samples: &[Vec<f32>]);
 
     fn send_pcm(&self, channel: i32, samples: &[f32]);
+
+    #[cfg(not(target_arch = "wasm32"))]
     fn send_pcm16(&self, channel: i32, samples: &[i16]);
 }
 
@@ -40,6 +41,7 @@ impl SlidingAppSender {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn fill_buf_from_i16(buf: &mut Vec<f32>, samples: &[i16]) {
     buf.extend(samples.iter().map(|s| s.to_f32()));
 }
@@ -66,6 +68,7 @@ impl PCMSender for SlidingAppSender {
         self.send_vec(num_channels, buf);
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn send_pcm16(&self, num_channels: i32, samples: &[i16]) {
         let optbuf = self.reuse_buffers_rx.try_recv().ok();
         let buf: Vec<f32>;

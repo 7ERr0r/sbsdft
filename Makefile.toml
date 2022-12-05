@@ -109,10 +109,20 @@ description = "Optimize WASM with wasm-opt"
 command = "./bin/binaryen/bin/wasm-opt"
 args = ["-O3", "dist/dftvis_bg.wasm", "-o", "dist/dftvis_bg.wasm"]
 
+[tasks.optwasm_firefox]
+description = "Optimize WASM with wasm-opt (no-op)"
+command = "cp"
+args = ["dist/dftvis_bg.wasm", "dist/dftvis_firefox_bg.wasm"]
+
 [tasks.optjs]
 description = "Optimize release JS with terser"
 command = "npx"
 args = ["terser", "-c", "-m", "-o", "dist/dftvis.js", "dist/dftvis.js"]
+
+[tasks.optjs_firefox]
+description = "Optimize release JS with terser"
+command = "npx"
+args = ["terser", "-c", "-m", "-o", "dist/dftvis_firefox.js", "dist/dftvis_firefox.js"]
 
 [tasks.rb]
 description = "Combine the build and serve tasks"
@@ -128,7 +138,7 @@ dependencies = [
 [tasks.rbo]
 description = "Combine the build and serve tasks"
 workspace = false
-dependencies = ["rb", "optjs", "optwasm"]
+dependencies = ["rb", "optjs", "optjs_firefox", "optwasm", "optwasm_firefox"]
 
 [tasks.db]
 description = "Combine the build and serve tasks"
