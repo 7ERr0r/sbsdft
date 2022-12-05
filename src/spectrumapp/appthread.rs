@@ -1,5 +1,6 @@
 use std::sync::{Arc, Mutex, Weak};
 
+use cpal::Sample;
 use crossbeam_channel::{bounded, Receiver, Sender};
 
 use super::sbswdft::SlidingImpl;
@@ -9,6 +10,7 @@ pub trait PCMSender: Send + Sync {
     //fn on_receive(&self, samples: &[Vec<f32>]);
 
     fn send_pcm(&self, channel: i32, samples: &[f32]);
+    fn send_pcm16(&self, channel: i32, samples: &[i16]);
 }
 
 #[derive(Clone)]
@@ -30,6 +32,18 @@ impl SlidingAppSender {
         }
     }
 }
+impl SlidingAppSender {
+    fn send_vec(&self, num_channels: i32, buf: Vec<f32>) {
+        let _ = self
+            .main_pcm_tx
+            .try_send(AppMsg::PcmAudio(num_channels, buf));
+    }
+}
+
+fn fill_buf_from_i16(buf: &mut Vec<f32>, samples: &[i16]) {
+    buf.extend(samples.iter().map(|s| s.to_f32()));
+}
+
 
 impl PCMSender for SlidingAppSender {
     fn num_channels(&self) -> usize {
@@ -49,9 +63,25 @@ impl PCMSender for SlidingAppSender {
             buf = samples.to_vec();
         }
 
-        let _ = self
-            .main_pcm_tx
-            .try_send(AppMsg::PcmAudio(num_channels, buf));
+        self.send_vec(num_channels, buf);
+    }
+
+    fn send_pcm16(&self, num_channels: i32, samples: &[i16]) {
+        let optbuf = self.reuse_buffers_rx.try_recv().ok();
+        let buf: Vec<f32>;
+
+        if let Some(mut sbuf) = optbuf {
+            sbuf.clear();
+            sbuf.reserve(samples.len());
+            fill_buf_from_i16(&mut sbuf, samples);
+            buf = sbuf;
+        } else {
+            let mut sbuf = Vec::with_capacity(samples.len());
+            fill_buf_from_i16(&mut sbuf, samples);
+            buf = sbuf;
+        }
+
+        self.send_vec(num_channels, buf);
     }
 
     // fn on_receive(&self, channels_samples: &[Vec<f32>]) {

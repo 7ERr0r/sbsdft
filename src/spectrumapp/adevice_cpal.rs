@@ -94,35 +94,35 @@ fn start_cpal_stream(
         eprintln!("an error occurred on stream: {}", err);
     };
 
-    let mut sine_t: f32 = 0.0;
-    let mut t: f32 = 0.0;
-    let tau = std::f32::consts::PI * 2.0;
-    let mut debug_getter = move || -> f32 {
-        t += tau * 0.1 / 48000.0;
-        if t > tau {
-            t -= tau;
-        }
-        sine_t += tau * (440.0 + 320.0 * t.sin()) / 48000.0;
-        if sine_t > tau {
-            sine_t -= tau;
-        }
-        sine_t.sin() / 2.0
-    };
+    // let mut sine_t: f32 = 0.0;
+    // let mut t: f32 = 0.0;
+    // let tau = std::f32::consts::PI * 2.0;
+    // let mut debug_getter = move || -> f32 {
+    //     t += tau * 0.1 / 48000.0;
+    //     if t > tau {
+    //         t -= tau;
+    //     }
+    //     sine_t += tau * (440.0 + 320.0 * t.sin()) / 48000.0;
+    //     if sine_t > tau {
+    //         sine_t -= tau;
+    //     }
+    //     sine_t.sin() / 2.0
+    // };
 
     let stream = match config.sample_format() {
         cpal::SampleFormat::F32 => device.build_input_stream(
             &config.into(),
-            move |data, _: &_| write_input_data::<f32, _>(data, tx.clone(), &mut debug_getter),
+            move |data, _: &_| write_input_data_f32(data, &tx),
             err_fn,
         )?,
         cpal::SampleFormat::I16 => device.build_input_stream(
             &config.into(),
-            move |data, _: &_| write_input_data::<i16, _>(data, tx.clone(), &mut debug_getter),
+            move |data, _: &_| write_input_data_i16(data, &tx),
             err_fn,
         )?,
         cpal::SampleFormat::U16 => device.build_input_stream(
             &config.into(),
-            move |data, _: &_| write_input_data::<u16, _>(data, tx.clone(), &mut debug_getter),
+            move |data, _: &_| write_input_data_i16(data, &tx),
             err_fn,
         )?,
     };
@@ -133,26 +133,11 @@ fn start_cpal_stream(
     Ok(stream)
 }
 
-fn write_input_data<T, G>(input: &[T], tx: Arc<dyn PCMSender>, _debug_getter: &mut G)
-where
-    T: cpal::Sample,
-    G: FnMut() -> f32,
-{
-    let mut v = Vec::with_capacity(input.len());
-
-    // for &sample in input.iter().step_by(2) {
-    //     //let sample: U = cpal::Sample::from(&sample);
-    //     v.push(sample.to_f32());
-    //     //v.push(debug_getter());
-    // }
-
-    for &sample in input {
-        v.push(sample.to_f32());
-    }
-
-    //v.clone_from_slice(input);
-
-    let _result = tx.send_pcm(-1, v);
+fn write_input_data_i16(input: &[i16], tx: &Arc<dyn PCMSender>) {
+    let _result = tx.send_pcm16(-1, input);
+}
+fn write_input_data_f32(input: &[f32], tx: &Arc<dyn PCMSender>) {
+    let _result = tx.send_pcm(-1, input);
 }
 
 pub struct SlidingCpal {
