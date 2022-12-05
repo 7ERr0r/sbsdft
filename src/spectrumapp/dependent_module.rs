@@ -1,33 +1,39 @@
-use js_sys::{Array, ArrayBuffer, JsString, Object, Uint8Array};
+use js_sys::{Array, ArrayBuffer, JsString, Uint8Array};
 use wasm_bindgen::{prelude::*, JsCast};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{Blob, BlobPropertyBag, Request, RequestInit, RequestMode, Response, Url};
 
-use super::pool::get_wasm_bindgen_js_path;
+use super::pool::{get_wasm_bindgen_js_path, get_wasm_bindgen_using_modules};
 
-// This is a not-so-clean approach to get the current bindgen ES module URL
-// in Rust. This will fail at run time on bindgen targets not using ES modules.
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen]
-    type ImportMeta;
+// // This is a not-so-clean approach to get the current bindgen ES module URL
+// // in Rust. This will fail at run time on bindgen targets not using ES modules.
+// #[wasm_bindgen]
+// extern "C" {
+//     #[wasm_bindgen]
+//     type ImportMeta;
 
-    #[wasm_bindgen(method, getter)]
-    fn url(this: &ImportMeta) -> JsString;
+//     #[wasm_bindgen(method, getter)]
+//     fn url(this: &ImportMeta) -> JsString;
 
-    // #[wasm_bindgen(js_namespace = import, js_name = meta)]
-    // static IMPORT_META: Option<ImportMeta>;
-}
+//     #[wasm_bindgen(js_namespace = import, js_name = meta)]
+//     static IMPORT_META: ImportMeta;
+//     // #[wasm_bindgen(js_name = import)]
+//     // static IMPORT: JsValue;
+// }
 
-pub fn get_import_meta() -> Option<String> {
-    let global = js_sys::global();
-    let import = Object::get_own_property_descriptor(&global, &JsString::from("import"));
-    let meta =
-        Object::get_own_property_descriptor(&import.dyn_into().ok()?, &JsString::from("meta"));
+// pub fn get_import_meta() -> Option<String> {
+//     // let global = js_sys::global();
+//     // klog!("global: {:?}", global);
+//     // let import = js_sys::Reflect::get(&IMPORT, &JsString::from("import")).ok()?;
+//     // klog!("import: {:?}", import);
 
-    let meta: ImportMeta = meta.dyn_into().ok()?;
-    Some(meta.url().into())
-}
+//     let meta =
+//         js_sys::eval("import.meta").unwrap();
+//     //let meta = js_sys::Reflect::get(&IMPORT, &JsString::from("meta")).ok()?;
+//     klog!("meta: {:?}", meta);
+//     let meta: ImportMeta = meta.dyn_into().ok()?;
+//     Some(meta.url().into())
+// }
 
 pub async fn fetch_js_file(url: &str) -> Result<ArrayBuffer, JsValue> {
     let mut opts = RequestInit::new();
@@ -53,11 +59,18 @@ pub async fn fetch_js_file(url: &str) -> Result<ArrayBuffer, JsValue> {
 #[allow(unused)]
 pub async fn on_the_fly(code: &str) -> Result<String, JsValue> {
     // Generate the import of the bindgen ES module, assuming `--target web`:
+
+    let window = web_sys::window().unwrap();
+
+    let nav = window.navigator();
+
+    //let using_modules = nav.user_agent()?.to_lowercase().contains("firefox");
+    let using_modules = get_wasm_bindgen_using_modules();
     let header;
-    if let Some(import_path) = get_import_meta() {
+    if using_modules {
         header = format!(
-            "import init, * as bindgen from '{}';\n\n",
-            get_wasm_bindgen_js_path().unwrap_or(import_path.as_str()),
+            "import init, * as bindgen from '{}';\nconst wasmbinds = bindgen;\n\n",
+            get_wasm_bindgen_js_path().unwrap_or("None"),
         );
     } else {
         // importScripts does not work
@@ -75,7 +88,7 @@ pub async fn on_the_fly(code: &str) -> Result<String, JsValue> {
         let bindgen_script = Uint8Array::new(&bindgen_script);
         let script = bindgen_script.to_vec();
         let script = String::from_utf8_lossy(&script);
-        header = format!("{}\n{}\n\n", include_str!("js/polyfill.js"), script,);
+        header = format!("{}\nconst wasmbinds = wasm_bindgen;\n\n", script,);
     }
 
     Url::create_object_url_with_blob(&Blob::new_with_str_sequence_and_options(

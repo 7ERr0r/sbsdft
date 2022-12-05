@@ -6,7 +6,6 @@
 //! web workers which can be used to execute `rayon`-style work.
 
 use crate::klog;
-use crate::spectrumapp::dependent_module::get_import_meta;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -32,13 +31,18 @@ struct Work {
 }
 
 pub static mut WASM_BINDGEN_JS_PATH: Option<String> = None;
-pub unsafe fn set_wasm_bindgen_js_path(js_path: &str) {
+pub static mut WASM_BINDGEN_USING_MODULES: bool = false;
+pub unsafe fn set_wasm_bindgen_js_path(js_path: &str, using_modules: bool) {
     if WASM_BINDGEN_JS_PATH.is_none() {
         WASM_BINDGEN_JS_PATH = Some(String::from(js_path));
+        WASM_BINDGEN_USING_MODULES = using_modules;
     }
 }
 pub fn get_wasm_bindgen_js_path() -> Option<&'static str> {
     unsafe { WASM_BINDGEN_JS_PATH.as_ref().map(|s| s.as_str()) }
+}
+pub fn get_wasm_bindgen_using_modules() -> bool {
+    unsafe { WASM_BINDGEN_USING_MODULES }
 }
 
 /// Unconditionally spawns a new worker
@@ -80,14 +84,18 @@ pub fn spawn_worker() -> Result<Worker, JsValue> {
 
     let mut worker_content = String::new();
 
-    let window = web_sys::window().unwrap();
+    // let window = web_sys::window().unwrap();
 
-    let nav = window.navigator();
-    let legacy = true;
-    //let legacy = nav.user_agent()?.to_lowercase().contains("firefox");
+    // let nav = window.navigator();
+    // let import_meta = get_import_meta();
+    // let legacy = import_meta.is_none();
+    // klog!("import_meta: {:?}", import_meta);
+    //let using_modules = nav.user_agent()?.to_lowercase().contains("firefox");
+    let using_modules = get_wasm_bindgen_using_modules();
     use std::fmt::Write;
-    if legacy {
-        worker_content = include_str!("js/kworkerlegacy.js").replace("HEREwbgpath", wrapper_url);
+    if !using_modules {
+        worker_content =
+            include_str!("js/kworkerlegacy.js").replace("replace_with_bindgen_js", wrapper_url);
     } else {
         let _ = write!(
             worker_content,
@@ -96,13 +104,13 @@ pub fn spawn_worker() -> Result<Worker, JsValue> {
             include_str!("js/kworker.js")
         );
     }
-    klog!("creating worker (len: {})", worker_content.len());
+    // klog!("creating worker (len: {})", worker_content.len());
 
-    klog!(
-        "creating worker (len: {}): {}",
-        worker_content.len(),
-        worker_content
-    );
+    // klog!(
+    //     "creating worker (len: {}): {}",
+    //     worker_content.len(),
+    //     worker_content
+    // );
     let mut worker_blob_property_bag = BlobPropertyBag::new();
     worker_blob_property_bag.type_("text/javascript");
 
@@ -118,7 +126,7 @@ pub fn spawn_worker() -> Result<Worker, JsValue> {
     let worker_data_url: String = Url::create_object_url_with_blob(&worker_blob)?;
     let mut worker_opts = WorkerOptions::new();
     worker_opts.name("kxworker");
-    if get_import_meta().is_some() {
+    if using_modules {
         js_sys::Reflect::set(
             &worker_opts,
             &JsValue::from("type"),

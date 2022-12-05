@@ -4,10 +4,16 @@ registerProcessor("WasmProcessor", class WasmProcessor extends AudioWorkletProce
   constructor(options) {
       super();
       let [module, memory, handle] = options.processorOptions;
-      const bindgen = wasm_bindgen;
-      console.log("bindgen.initSync");
-      bindgen.initSync(module, memory);
-      this.processor = bindgen.WasmAudioProcessor.unpack(handle);
+
+      // // legacy without modules
+      // let wasmbinds = globalThis.wasm_bindgen;
+      // if(!wasmbinds) {
+      //   // modules
+      //   wasmbinds = bindgen;
+      // }
+      console.log("wasmbinds.initSync");
+      wasmbinds.initSync(module, memory);
+      this.processor = wasmbinds.WasmAudioProcessor.unpack(handle);
   }
   process(inputs, outputs) {
     let insamples = inputs[0][0];

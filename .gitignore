@@ -6,6 +6,7 @@ old/
 
 dist/snippets
 dist/dftvis.js
+dist/dftvis_firefox.js
 *.wasm
 *.wasm.d.ts
 *.d.ts

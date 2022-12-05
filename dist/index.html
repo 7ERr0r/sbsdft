@@ -41,7 +41,7 @@
     const pathname = location.pathname;
     const anticache = "?t=" + Math.floor(Date.now());
     const statustext = document.getElementById("statustext");
-    let modpath = origin + pathname + "dftvis.js" + anticache;
+
     //import { default as init, start_dft } from modpath;
 
     function sleep(ms) {
@@ -60,38 +60,25 @@
         document.head.appendChild(s);
       });
     }
-    async function tryStartAppLegacy() {
-      statustext.innerText = "tryStartAppLegacy";
-      await loadScriptLegacy(modpath);
-      const wasmurl = "dftvis_bg.wasm";
-      statustext.innerText = "await wasm_bindgen(" + wasmurl + ")...";
-      let loaded = false;
-      try {
-        await wasm_bindgen(new URL(wasmurl + anticache, import.meta.url))
-        loaded = true;
-      } catch (error) {
-        statustext.innerText = "error init " + wasmurl + ": " + error;
-        console.error(error)
-      }
-    }
 
-    async function tryStartApp(legacy) {
+
+    async function tryStartApp(noModules, bindurl, wasmurl) {
       let wasmbinds;
-      statustext.innerText = "import(" + modpath + ")";
-      if (legacy) {
-        await loadScriptLegacy(modpath);
+      statustext.innerText = "import(" + bindurl + ")";
+      if (noModules) {
+        await loadScriptLegacy(bindurl);
+        // global value :/
         wasmbinds = wasm_bindgen;
       } else {
-        wasmbinds = await import(modpath);
+        wasmbinds = await import(bindurl);
         window.wasmbinds = wasmbinds;
       }
 
-      const wasmurl = "dftvis_bg.wasm";
       statustext.innerText = "wasm_bindgen.init(" + wasmurl + ")...";
       let loaded = false;
       try {
         let init;
-        if (legacy) {
+        if (noModules) {
           init = wasm_bindgen;
         } else {
           init = wasmbinds.default;
@@ -109,7 +96,7 @@
         // workers must load the SAME cached file
         // so the threads will start faster
         statustext.innerText = "start_dft...";
-        wasmbinds.start_dft(modpath, navigator.hardwareConcurrency);
+        wasmbinds.start_dft(bindurl, !noModules, navigator.hardwareConcurrency);
 
 
         statustext.innerText = "sleepAnimationFrame...";
@@ -127,7 +114,14 @@
     }
     async function start() {
       try {
-        await tryStartApp(true)
+        var isFirefox = navigator.userAgent.toLowerCase().indexOf("firefox") > -1;
+        let firefoxSuffix = "";
+        if (isFirefox) {
+          firefoxSuffix = "_firefox";
+        }
+        let bindurl = origin + pathname + "dftvis" + firefoxSuffix + ".js" + anticache;
+        let wasmurl = "dftvis" + firefoxSuffix + "_bg.wasm";
+        await tryStartApp(isFirefox, bindurl, wasmurl)
       } catch (error) {
         statustext.innerText = "error: " + error;
         console.error(error)

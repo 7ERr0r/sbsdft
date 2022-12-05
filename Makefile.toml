@@ -62,24 +62,41 @@ args = [
 [tasks.rbindgen]
 description = "Generate release wrapper"
 command = "wasm-bindgen"
-#args = ["--out-dir", "dist", "--web", "./target/wasm32-unknown-unknown/release/dftvis.wasm"]
+args = [
+    "--out-dir",
+    "dist",
+    "--web",
+    "./target/wasm32-unknown-unknown/release/dftvis.wasm",
+]
+
+[tasks.rbindgen_firefox]
+description = "Generate release wrapper firefox"
+command = "wasm-bindgen"
 args = [
     "--out-dir",
     "dist",
     "--target",
     "no-modules",
+    "--out-name",
+    "dftvis_firefox",
     "./target/wasm32-unknown-unknown/release/dftvis.wasm",
 ]
 
 [tasks.dbindgen]
-description = "Generate release wrapper"
+description = "Generate debug wrapper"
 command = "wasm-bindgen"
 args = [
     "--out-dir",
     "dist",
-    "--web",
+    "--target",
+    "web",
     "./target/wasm32-unknown-unknown/debug/dftvis.wasm",
 ]
+[tasks.fix_text_enc_dec]
+description = "Fixes bindgen's new TextDecoder('utf-8', ...) in AudioWorklet"
+command = "bash"
+args = ["fix_text_enc_dec.sh"]
+
 
 # [tasks.rpack]
 # description = "pack wasm release"
@@ -101,12 +118,17 @@ args = ["terser", "-c", "-m", "-o", "dist/dftvis.js", "dist/dftvis.js"]
 description = "Combine the build and serve tasks"
 workspace = false
 #dependencies = ["wasmreleasen", "rbindgen", "optwasm", "optjs"]
-dependencies = ["wasmreleasen", "rbindgen"]
+dependencies = [
+    "wasmreleasen",
+    "rbindgen",
+    "rbindgen_firefox",
+    "fix_text_enc_dec",
+]
 
 [tasks.rbo]
 description = "Combine the build and serve tasks"
 workspace = false
-dependencies = ["wasmreleasen", "rbindgen", "optjs", "optwasm"]
+dependencies = ["rb", "optjs", "optwasm"]
 
 [tasks.db]
 description = "Combine the build and serve tasks"

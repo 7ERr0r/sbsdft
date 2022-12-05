@@ -1,10 +1,8 @@
-importScripts("HEREwbgpath");
+importScripts("replace_with_bindgen_js");
 
-// let modpath = "HEREwbgpath";
-// import { default as init, child_entry_point } from modpath;
-console.log("kworkerlegacy.js importScripts done");
+// console.log("kworkerlegacy.js importScripts done");
 
-console.log("kworkerlegacy.js: ", wasm_bindgen);
+// console.log("kworkerlegacy.js: ", wasm_bindgen);
 let firstMsg = true;
 self.addEventListener('message', event => {
     if (firstMsg) {

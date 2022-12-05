@@ -45,7 +45,7 @@ pub fn main() {
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
-pub fn start_dft(wasm_bindgen_path: &str, rayon_threads: i32) {
+pub fn start_dft(wasm_bindgen_path: &str, is_module: bool, rayon_threads: i32) {
     use crate::spectrumapp::appstate::*;
     set_app_state(AppState::Initializing);
 
@@ -75,11 +75,8 @@ pub fn start_dft(wasm_bindgen_path: &str, rayon_threads: i32) {
     crate::spectrumapp::kwasm::debug_wasm_mem("start_dft");
 
     unsafe {
-        crate::spectrumapp::pool::set_wasm_bindgen_js_path(wasm_bindgen_path);
+        crate::spectrumapp::pool::set_wasm_bindgen_js_path(wasm_bindgen_path, is_module);
     }
-
-    let meta = spectrumapp::dependent_module::get_import_meta();
-    klog!("meta: {:?}", meta);
 
     set_app_state(AppState::InitRayon);
     use crate::spectrumapp::wasm_rayon::init_wasm_rayon;
