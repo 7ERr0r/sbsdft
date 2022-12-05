@@ -5,28 +5,28 @@
 
 
 let firstMsg = true;
-let donewbgmod = null;
+let wasmbinds = null;
 let preinitqueue = [];
-let wasmbindmodpromise = null;
+let importpromise = null;
 
 self.addEventListener('message', event => {
-    if (donewbgmod != null) {
+    if (wasmbinds != null) {
         // fastpath
-        donewbgmod.child_entry_point(event.data);
+        wasmbinds.child_entry_point(event.data);
     } else {
         if (firstMsg) {
             firstMsg = false;
 
             (async () => {
-                let wasmbindmod = await wasmbindmodpromise;
+                let wasmbindmod = await importpromise;
 
-                console.log("onmessage_a", wasmbindmod);
+                console.log("kworker.js first message", wasmbindmod);
                 try {
                     await wasmbindmod.default(...event.data);
-                    donewbgmod = wasmbindmod;
+                    wasmbinds = wasmbindmod;
 
                     for (let i = 0; i < preinitqueue.length; i++) {
-                        donewbgmod.child_entry_point(preinitqueue[i]);
+                        wasmbinds.child_entry_point(preinitqueue[i]);
                     }
                     preinitqueue = [];
                 } catch (err) {
@@ -40,7 +40,7 @@ self.addEventListener('message', event => {
         }
     }
 });
-wasmbindmodpromise = import(wbgpath);
+importpromise = import(wbgpath);
 
 
 

@@ -28,5 +28,5 @@ if (!globalThis.TextEncoder) {
     };
 }
 
-export function polyfill_nop() {
-}
+// export function polyfill_nop() {
+// }

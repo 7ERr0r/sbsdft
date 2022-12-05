@@ -3,7 +3,6 @@
 skip_core_tasks = true
 
 
-
 [tasks.release]
 description = "Build release"
 env = { RUSTFLAGS = "" }
@@ -22,34 +21,65 @@ args = ["build", "--target", "x86_64-unknown-linux-gnu", "--release"]
 description = "Build release"
 env = { RUSTFLAGS = "--cfg=web_sys_unstable_apis" }
 command = "cargo"
-args = ["build", "--no-default-features", "--target", "wasm32-unknown-unknown", "--release"]
+args = [
+    "build",
+    "--no-default-features",
+    "--target",
+    "wasm32-unknown-unknown",
+    "--release",
+]
 
 
 [tasks.wasmreleasen]
 description = "Build --release nightly with bulk/shared memory"
 env = { RUSTFLAGS = "--cfg=web_sys_unstable_apis -C target-feature=+atomics,+bulk-memory,+mutable-globals -Clink-args=--max-memory=4294967296" }
 command = "cargo"
-args = ["build", "--no-default-features", "--target", "wasm32-unknown-unknown", "-Z", "build-std=std,panic_abort", "--release"]
+args = [
+    "build",
+    "--no-default-features",
+    "--target",
+    "wasm32-unknown-unknown",
+    "-Z",
+    "build-std=std,panic_abort",
+    "--release",
+]
 
 
 [tasks.wasmdebugn]
 description = "Build --debug nightly with bulk/shared memory"
 env = { RUSTFLAGS = "--cfg=web_sys_unstable_apis -C target-feature=+atomics,+bulk-memory,+mutable-globals" }
 command = "cargo"
-args = ["build", "--no-default-features", "--target", "wasm32-unknown-unknown", "-Z", "build-std=std,panic_abort"]
-
-
+args = [
+    "build",
+    "--no-default-features",
+    "--target",
+    "wasm32-unknown-unknown",
+    "-Z",
+    "build-std=std,panic_abort",
+]
 
 
 [tasks.rbindgen]
 description = "Generate release wrapper"
 command = "wasm-bindgen"
-args = ["--out-dir", "dist", "--web", "./target/wasm32-unknown-unknown/release/dftvis.wasm"]
+#args = ["--out-dir", "dist", "--web", "./target/wasm32-unknown-unknown/release/dftvis.wasm"]
+args = [
+    "--out-dir",
+    "dist",
+    "--target",
+    "no-modules",
+    "./target/wasm32-unknown-unknown/release/dftvis.wasm",
+]
 
 [tasks.dbindgen]
 description = "Generate release wrapper"
 command = "wasm-bindgen"
-args = ["--out-dir", "dist", "--web", "./target/wasm32-unknown-unknown/debug/dftvis.wasm"]
+args = [
+    "--out-dir",
+    "dist",
+    "--web",
+    "./target/wasm32-unknown-unknown/debug/dftvis.wasm",
+]
 
 # [tasks.rpack]
 # description = "pack wasm release"

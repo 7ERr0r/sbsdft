@@ -26,7 +26,7 @@ where
 }
 
 #[cfg(target_arch = "wasm32")]
-pub fn spawn_once<F, T>(tname: &'static str, f: F) -> ()
+pub fn spawn_once<F, T>(_thread_name: &'static str, f: F) -> ()
 where
     F: FnOnce() -> T,
     F: Send + 'static,
@@ -38,7 +38,7 @@ where
     let js_workerc = js_worker.clone();
     klog!("spawn_once...");
     super::pool::execute_unpooled(&js_workerc, move || {
-        klog!("spawn_once execute_unpooled {}", tname);
+        //klog!("spawn_once execute_unpooled {}", tname);
         f();
     })
     .unwrap();

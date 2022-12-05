@@ -31,7 +31,6 @@ opt-level = 3
 
 
 [dependencies]
-wee_alloc = "0.4.5"
 bytes = "1.1.0"
 byteorder = "1.4.3"
 futures = "0.3.21"
@@ -142,7 +141,6 @@ rev = "e5ddb94be0221b0f53a8f43adfb15458daebfd7c"
 
 
 [target.'cfg(target_arch="wasm32")'.dependencies]
-wee_alloc = "0.4.5"
 spmc = "0.3.0"
 console_log = "0.2.0"
 #dlmalloc = { version = "*", features = ["global"] }
@@ -165,6 +163,10 @@ web-sys = { version = "0.3.60", features = [
     "Blob",
     "DedicatedWorkerGlobalScope",
     "Url",
+    "Request",
+    "Response",
+    "RequestInit",
+    "RequestMode",
     "AudioWorklet",
     "AudioWorkletNode",
     "AudioWorkletNodeOptions",

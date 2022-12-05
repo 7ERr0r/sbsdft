@@ -1,8 +1,8 @@
 use super::appstate::set_app_state;
 use super::appstate::AppState;
 use super::appthread::PCMSender;
+use super::dependent_module;
 
-use crate::dependent_module;
 use crate::klog;
 
 use web_sys::AudioWorkletNode;
@@ -167,7 +167,7 @@ impl AdeviceWeb {
     pub fn create_worklet_processor_node(
         &self,
         ctx: &AudioContext,
-        process: Box<dyn FnMut(&mut [f32]) -> bool>,
+        process: Box<dyn FnMut(&[f32]) -> bool>,
     ) -> Result<AudioWorkletNode, JsValue> {
         AudioWorkletNode::new_with_options(
             &ctx,
@@ -185,8 +185,8 @@ impl AdeviceWeb {
     }
 
     pub async fn prepare_wasm_audio(ctx: &AudioContext) -> Result<(), JsValue> {
-        polyfill_nop();
-        let mod_url = &dependent_module!("kworklet.js")?;
+        //polyfill_nop();
+        let mod_url = dependent_module::on_the_fly(include_str!("js/kworklet.js")).await?;
         JsFuture::from(ctx.audio_worklet()?.add_module(&mod_url)?).await?;
         Ok(())
     }
@@ -200,7 +200,7 @@ impl AdeviceWeb {
 
         let atomic_started = Arc::new(AtomicBool::new(false));
 
-        let process_fn = Box::new(move |samples: &mut [f32]| -> bool {
+        let process_fn = Box::new(move |samples: &[f32]| -> bool {
             if !atomic_started.swap(true, Ordering::Relaxed) {
                 set_app_state(AppState::Playing);
             }
@@ -228,12 +228,12 @@ impl AdeviceWeb {
 
 #[wasm_bindgen]
 pub struct WasmAudioProcessor {
-    process_fn: Box<dyn FnMut(&mut [f32]) -> bool>,
+    process_fn: Box<dyn FnMut(&[f32]) -> bool>,
 }
 
 #[wasm_bindgen]
 impl WasmAudioProcessor {
-    pub fn process(&mut self, buf: &mut [f32]) -> bool {
+    pub fn process(&mut self, buf: &[f32]) -> bool {
         (self.process_fn)(buf)
     }
     pub fn pack(self) -> usize {
@@ -244,10 +244,10 @@ impl WasmAudioProcessor {
     }
 }
 
-// TextEncoder and TextDecoder are not available in Audio Worklets, but there
-// is a dirty workaround: Import polyfill.js to install stub implementations
-// of these classes in globalThis.
-#[wasm_bindgen(module = "/src/spectrumapp/polyfill.js")]
-extern "C" {
-    fn polyfill_nop();
-}
+// // TextEncoder and TextDecoder are not available in Audio Worklets, but there
+// // is a dirty workaround: Import polyfill.js to install stub implementations
+// // of these classes in globalThis.
+// #[wasm_bindgen(module = "/src/spectrumapp/polyfill.js")]
+// extern "C" {
+//     fn polyfill_nop();
+// }

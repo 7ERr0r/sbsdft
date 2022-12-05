@@ -50,14 +50,53 @@
     function sleepAnimationFrame() {
       return new Promise(resolve => requestAnimationFrame(resolve));
     }
-    async function tryStartApp() {
-      statustext.innerText = "import(" + modpath + ")";
-      const wasmbinds = await import(modpath);
+    function loadScriptLegacy(src) {
+      return new Promise(function (resolve, reject) {
+        var s;
+        s = document.createElement('script');
+        s.src = src;
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+    async function tryStartAppLegacy() {
+      statustext.innerText = "tryStartAppLegacy";
+      await loadScriptLegacy(modpath);
       const wasmurl = "dftvis_bg.wasm";
-      statustext.innerText = "wasmbinds.default(" + wasmurl + ")...";
+      statustext.innerText = "await wasm_bindgen(" + wasmurl + ")...";
       let loaded = false;
       try {
-        await wasmbinds.default(new URL(wasmurl + anticache, import.meta.url))
+        await wasm_bindgen(new URL(wasmurl + anticache, import.meta.url))
+        loaded = true;
+      } catch (error) {
+        statustext.innerText = "error init " + wasmurl + ": " + error;
+        console.error(error)
+      }
+    }
+
+    async function tryStartApp(legacy) {
+      let wasmbinds;
+      statustext.innerText = "import(" + modpath + ")";
+      if (legacy) {
+        await loadScriptLegacy(modpath);
+        wasmbinds = wasm_bindgen;
+      } else {
+        wasmbinds = await import(modpath);
+        window.wasmbinds = wasmbinds;
+      }
+
+      const wasmurl = "dftvis_bg.wasm";
+      statustext.innerText = "wasm_bindgen.init(" + wasmurl + ")...";
+      let loaded = false;
+      try {
+        let init;
+        if (legacy) {
+          init = wasm_bindgen;
+        } else {
+          init = wasmbinds.default;
+        }
+        await init(new URL(wasmurl + anticache, import.meta.url))
         loaded = true;
       } catch (error) {
         statustext.innerText = "error init " + wasmurl + ": " + error;
@@ -88,7 +127,7 @@
     }
     async function start() {
       try {
-        await tryStartApp()
+        await tryStartApp(true)
       } catch (error) {
         statustext.innerText = "error: " + error;
         console.error(error)

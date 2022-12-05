@@ -6,6 +6,7 @@
 //! web workers which can be used to execute `rayon`-style work.
 
 use crate::klog;
+use crate::spectrumapp::dependent_module::get_import_meta;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -82,25 +83,26 @@ pub fn spawn_worker() -> Result<Worker, JsValue> {
     let window = web_sys::window().unwrap();
 
     let nav = window.navigator();
-    let firefox = nav.user_agent()?.to_lowercase().contains("firefox");
+    let legacy = true;
+    //let legacy = nav.user_agent()?.to_lowercase().contains("firefox");
     use std::fmt::Write;
-    if firefox {
-        worker_content = include_str!("kworkerlegacy.js").replace("HEREwbgpath", wrapper_url);
+    if legacy {
+        worker_content = include_str!("js/kworkerlegacy.js").replace("HEREwbgpath", wrapper_url);
     } else {
         let _ = write!(
             worker_content,
             "const wbgpath = '{}';\n{}",
             wrapper_url,
-            include_str!("kworker.js")
+            include_str!("js/kworker.js")
         );
     }
     klog!("creating worker (len: {})", worker_content.len());
 
-    // klog!(
-    //     "creating worker (len: {}): {}",
-    //     worker_content.len(),
-    //     worker_content
-    // );
+    klog!(
+        "creating worker (len: {}): {}",
+        worker_content.len(),
+        worker_content
+    );
     let mut worker_blob_property_bag = BlobPropertyBag::new();
     worker_blob_property_bag.type_("text/javascript");
 
@@ -116,11 +118,13 @@ pub fn spawn_worker() -> Result<Worker, JsValue> {
     let worker_data_url: String = Url::create_object_url_with_blob(&worker_blob)?;
     let mut worker_opts = WorkerOptions::new();
     worker_opts.name("kxworker");
-    js_sys::Reflect::set(
-        &worker_opts,
-        &JsValue::from("type"),
-        &JsValue::from("module"),
-    )?;
+    if get_import_meta().is_some() {
+        js_sys::Reflect::set(
+            &worker_opts,
+            &JsValue::from("type"),
+            &JsValue::from("module"),
+        )?;
+    }
 
     js_sys::Reflect::set(
         &worker_opts,

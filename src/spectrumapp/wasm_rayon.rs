@@ -167,16 +167,11 @@ impl KRayonPoolBuilder {
         for _ in 0..num_threads {
             let js_worker = js_pool.worker().unwrap();
             let js_workerc = js_worker.clone();
-            klog!("spawn_once...");
-            // wasm_bindgen_futures::spawn_local(async move {
-            //     klog!("spawn_once spawn_local");
-
-            // });
 
             {
                 let notified_threads = notified_threads.clone();
                 let selfclone: Arc<Self> = self.me.upgrade().unwrap();
-                //let js_workercc = js_workerc.clone();
+
                 let last_idle_worker = last_idle_worker.clone();
                 super::pool::exec_on_message(&js_workerc, move |_msg| {
                     klog!("onmessage on main thread rayon");
@@ -194,7 +189,7 @@ impl KRayonPoolBuilder {
                 let alive_threads = self.alive_threads.clone();
                 super::pool::execute_unpooled(&js_workerc, move || {
                     alive_threads.fetch_add(1, Ordering::SeqCst);
-                    klog!("spawn_once execute_unpooled");
+
                     receiver.recv().unwrap().run();
                 })
                 .unwrap();
