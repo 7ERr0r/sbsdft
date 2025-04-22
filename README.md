@@ -24,7 +24,6 @@ Linux: `cargo make releasel`
 
 
 
-
 Todo
 ---
 - Organize code (less mutexes, separate crates)
@@ -49,9 +48,12 @@ Repo name is bad. Wanted to name it chromatone (similar to colorchord), but it's
 
 Wasm compilation
 ---
+- `rustup override set nightly`
+- `rustup component add rust-src`
 - download https://github.com/WebAssembly/binaryen/releases/latest
-- Linux: `wget https://github.com/WebAssembly/binaryen/releases/download/version_111/binaryen-version_111-x86_64-linux.tar.gz -O - | tar -zxvf -`
-- `mv binaryen-version_111 bin/binaryen`
+- Linux: `wget https://github.com/WebAssembly/binaryen/releases/download/version_123/binaryen-version_123-x86_64-linux.tar.gz -O - | tar -zxvf -`
+- `mkdir bin`
+- `mv binaryen-version_123 bin/binaryen`
 - `cargo install cargo-make`
 - `cargo install wasm-bindgen-cli`
 - `npm install terser`
