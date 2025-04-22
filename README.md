@@ -1,6 +1,6 @@
 Audio spectrum visualizer
 ===
-Demo: [dzwi.ga/dft/](https://dzwi.ga/dft/)
+Demo: [kloxki.pl/dft/](https://kloxki.pl/dft/)
 
 Visualizes audio frequencies with DFT (Discrete Fourier Transform).
 
